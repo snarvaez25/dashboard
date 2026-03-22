@@ -4,25 +4,69 @@
   <title>Dashboard Máquina PRO</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Contenedor para poner los gráficos uno al lado del otro */
+    /* Contenedor superior */
+    .top-container {
+      display: flex;
+      gap: 40px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    .box {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    /* Contenedor gráficos */
     .charts-container {
       display: flex;
-      gap: 20px; /* espacio entre gráficos */
-      flex-wrap: wrap; /* para pantallas pequeñas se acomoda */
+      gap: 20px;
+      flex-wrap: wrap;
     }
+
     .chart-box {
       flex: 1;
-      min-width: 300px; /* ancho mínimo para cada gráfico */
+      min-width: 300px;
     }
   </style>
 </head>
 <body>
 
-<h2>🔍 Filtrar datos</h2>
+<div class="top-container">
 
-<select id="filtroMaquina"></select>
-<select id="filtroMotor"></select>
-<button onclick="loadData()">Aplicar filtro</button>
+  <!-- 🔍 FILTROS -->
+  <div class="box">
+    <h2>🔍 Filtrar datos</h2>
+
+    <select id="filtroMaquina"></select>
+    <select id="filtroMotor"></select>
+    <button onclick="loadData()">Aplicar filtro</button>
+  </div>
+
+  <!-- ➕ INGRESO -->
+  <div class="box">
+    <h2>➕ Ingresar datos</h2>
+
+    <input type="text" id="maquina" placeholder="Maquina">
+    <input type="text" id="motor" placeholder="Motor">
+    <input type="time" id="hora">
+    <input type="date" id="fecha">
+
+    <br><br>
+
+    <input type="number" id="r" placeholder="R">
+    <input type="number" id="s" placeholder="S">
+    <input type="number" id="t" placeholder="T">
+    <input type="number" id="tf" placeholder="TF">
+    <input type="number" id="tt" placeholder="TT">
+    <input type="number" id="tc" placeholder="TC">
+
+    <br><br>
+
+    <button onclick="enviarDatos()">Guardar</button>
+  </div>
+
+</div>
 
 <hr>
 
@@ -37,30 +81,8 @@
   </div>
 </div>
 
-<hr>
-
-<h2>➕ Ingresar datos</h2>
-
-<input type="text" id="maquina" placeholder="Maquina">
-<input type="text" id="motor" placeholder="Motor">
-<input type="time" id="hora">
-<input type="date" id="fecha">
-
-<br><br>
-
-<input type="number" id="r" placeholder="R">
-<input type="number" id="s" placeholder="S">
-<input type="number" id="t" placeholder="T">
-<input type="number" id="tf" placeholder="TF">
-<input type="number" id="tt" placeholder="TT">
-<input type="number" id="tc" placeholder="TC">
-
-<br><br>
-
-<button onclick="enviarDatos()">Guardar</button>
-
 <script>
-const sheetURL = " https://script.google.com/macros/s/AKfycby1XhS-k_qEDs1CJFMH-R1G4t7uADZfw5cNMr4v6ox7Lv-yQE-BY6ing85TWvcKvA26/exec ";
+const sheetURL = "https://script.google.com/macros/s/AKfycby1XhS-k_qEDs1CJFMH-R1G4t7uADZfw5cNMr4v6ox7Lv-yQE-BY6ing85TWvcKvA26/exec";
 
 let chart1;
 let chart2;
@@ -84,12 +106,11 @@ async function loadDropdowns(data) {
   });
 }
 
-// Cargar datos y graficar (con filtro inmediato y escala ±10)
+// Cargar datos y graficar
 async function loadData() {
   const res = await fetch(sheetURL);
   const data = await res.json();
 
-  // Cargar dropdown SOLO una vez
   if (document.getElementById('filtroMaquina').options.length === 0) {
     loadDropdowns(data);
   }
@@ -110,7 +131,7 @@ async function loadData() {
 
   const labels = filtrados.map(r => {
     const fecha = new Date(r[3]);
-    return fecha.toISOString().split('T')[0]; // solo YYYY-MM-DD
+    return fecha.toISOString().split('T')[0];
   });
 
   const datasets1 = [
@@ -125,53 +146,27 @@ async function loadData() {
     { label: 'TC', data: filtrados.map(r => r[9]), borderColor: 'brown' }
   ];
 
-  // 🔹 Escala dinámica ±10 para R,S,T
-  const todosValores1 = [].concat(...datasets1.map(d => d.data));
-  const min1 = Math.min(...todosValores1);
-  const max1 = Math.max(...todosValores1);
-
   const ctx1 = document.getElementById('chartRST').getContext('2d');
   if (chart1) {
     chart1.data.labels = labels;
     chart1.data.datasets = datasets1;
-    chart1.options.scales.y.min = min1 - 10;
-    chart1.options.scales.y.max = max1 + 10;
     chart1.update();
   } else {
     chart1 = new Chart(ctx1, {
       type: 'line',
-      data: { labels, datasets: datasets1 },
-      options: {
-        responsive: true,
-        interaction: { mode: 'index', intersect: false },
-        plugins: { title: { display: true, text: 'R, S, T vs Tiempo' } },
-        scales: { y: { min: min1 - 10, max: max1 + 10 } }
-      }
+      data: { labels, datasets: datasets1 }
     });
   }
-
-  // 🔹 Escala dinámica ±10 para TF,TT,TC
-  const todosValores2 = [].concat(...datasets2.map(d => d.data));
-  const min2 = Math.min(...todosValores2);
-  const max2 = Math.max(...todosValores2);
 
   const ctx2 = document.getElementById('chartTFTTTC').getContext('2d');
   if (chart2) {
     chart2.data.labels = labels;
     chart2.data.datasets = datasets2;
-    chart2.options.scales.y.min = min2 - 10;
-    chart2.options.scales.y.max = max2 + 10;
     chart2.update();
   } else {
     chart2 = new Chart(ctx2, {
       type: 'line',
-      data: { labels, datasets: datasets2 },
-      options: {
-        responsive: true,
-        interaction: { mode: 'index', intersect: false },
-        plugins: { title: { display: true, text: 'TF, TT, TC vs Tiempo' } },
-        scales: { y: { min: min2 - 10, max: max2 + 10 } }
-      }
+      data: { labels, datasets: datasets2 }
     });
   }
 }
@@ -205,17 +200,14 @@ async function enviarDatos() {
   loadData();
 }
 
-// Auto fecha y hora
 window.onload = () => {
   const now = new Date();
   document.getElementById('fecha').valueAsDate = now;
   document.getElementById('hora').value = now.toTimeString().slice(0,5);
 };
 
-// Auto actualización cada 5 segundos
 setInterval(loadData, 180000);
 loadData();
-
 </script>
 
 </body>
