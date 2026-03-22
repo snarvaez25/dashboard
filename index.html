@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard Máquina PRO</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Contenedor para poner los gráficos uno al lado del otro */
+    .charts-container {
+      display: flex;
+      gap: 20px; /* espacio entre gráficos */
+      flex-wrap: wrap; /* para pantallas pequeñas se acomoda */
+    }
+    .chart-box {
+      flex: 1;
+      min-width: 300px; /* ancho mínimo para cada gráfico */
+    }
+  </style>
+</head>
+<body>
+
+<h2>🔍 Filtrar datos</h2>
+
+<select id="filtroMaquina"></select>
+<select id="filtroMotor"></select>
+<button onclick="loadData()">Aplicar filtro</button>
+
+<hr>
+
+<div class="charts-container">
+  <div class="chart-box">
+    <h2>📊 R, S, T</h2>
+    <canvas id="chartRST" width="400" height="300"></canvas>
+  </div>
+  <div class="chart-box">
+    <h2>📊 TF, TT, TC</h2>
+    <canvas id="chartTFTTTC" width="400" height="300"></canvas>
+  </div>
+</div>
+
+<hr>
+
+<h2>➕ Ingresar datos</h2>
+
+<input type="text" id="maquina" placeholder="Maquina">
+<input type="text" id="motor" placeholder="Motor">
+<input type="time" id="hora">
+<input type="date" id="fecha">
+
+<br><br>
+
+<input type="number" id="r" placeholder="R">
+<input type="number" id="s" placeholder="S">
+<input type="number" id="t" placeholder="T">
+<input type="number" id="tf" placeholder="TF">
+<input type="number" id="tt" placeholder="TT">
+<input type="number" id="tc" placeholder="TC">
+
+<br><br>
+
+<button onclick="enviarDatos()">Guardar</button>
+
+<script>
+const sheetURL = " https://script.google.com/macros/s/AKfycby1XhS-k_qEDs1CJFMH-R1G4t7uADZfw5cNMr4v6ox7Lv-yQE-BY6ing85TWvcKvA26/exec ";
+
+let chart1;
+let chart2;
+
+// Cargar dropdown automáticamente
+async function loadDropdowns(data) {
+  const maquinas = [...new Set(data.slice(1).map(r => r[0]))];
+  const motores = [...new Set(data.slice(1).map(r => r[1]))];
+
+  const selectMaq = document.getElementById('filtroMaquina');
+  const selectMot = document.getElementById('filtroMotor');
+
+  selectMaq.innerHTML = '<option value="">Todas las máquinas</option>';
+  maquinas.forEach(m => {
+    selectMaq.innerHTML += `<option value="${m}">${m}</option>`;
+  });
+
+  selectMot.innerHTML = '<option value="">Todos los motores</option>';
+  motores.forEach(m => {
+    selectMot.innerHTML += `<option value="${m}">${m}</option>`;
+  });
+}
+
+// Cargar datos y graficar (con filtro inmediato y escala ±10)
+async function loadData() {
+  const res = await fetch(sheetURL);
+  const data = await res.json();
+
+  // Cargar dropdown SOLO una vez
+  if (document.getElementById('filtroMaquina').options.length === 0) {
+    loadDropdowns(data);
+  }
+
+  const rows = data.slice(1);
+
+  const maquinaFiltro = document.getElementById('filtroMaquina').value.toLowerCase();
+  const motorFiltro = document.getElementById('filtroMotor').value.toLowerCase();
+
+  const filtrados = rows.filter(r => {
+    const maq = r[0].toLowerCase();
+    const mot = r[1].toLowerCase();
+    return (
+      (maquinaFiltro === "" || maq === maquinaFiltro) &&
+      (motorFiltro === "" || mot === motorFiltro)
+    );
+  });
+
+  const labels = filtrados.map(r => {
+    const fecha = new Date(r[3]);
+    return fecha.toISOString().split('T')[0]; // solo YYYY-MM-DD
+  });
+
+  const datasets1 = [
+    { label: 'R', data: filtrados.map(r => r[4]), borderColor: 'red' },
+    { label: 'S', data: filtrados.map(r => r[5]), borderColor: 'blue' },
+    { label: 'T', data: filtrados.map(r => r[6]), borderColor: 'green' }
+  ];
+
+  const datasets2 = [
+    { label: 'TF', data: filtrados.map(r => r[7]), borderColor: 'orange' },
+    { label: 'TT', data: filtrados.map(r => r[8]), borderColor: 'purple' },
+    { label: 'TC', data: filtrados.map(r => r[9]), borderColor: 'brown' }
+  ];
+
+  // 🔹 Escala dinámica ±10 para R,S,T
+  const todosValores1 = [].concat(...datasets1.map(d => d.data));
+  const min1 = Math.min(...todosValores1);
+  const max1 = Math.max(...todosValores1);
+
+  const ctx1 = document.getElementById('chartRST').getContext('2d');
+  if (chart1) {
+    chart1.data.labels = labels;
+    chart1.data.datasets = datasets1;
+    chart1.options.scales.y.min = min1 - 10;
+    chart1.options.scales.y.max = max1 + 10;
+    chart1.update();
+  } else {
+    chart1 = new Chart(ctx1, {
+      type: 'line',
+      data: { labels, datasets: datasets1 },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { title: { display: true, text: 'R, S, T vs Tiempo' } },
+        scales: { y: { min: min1 - 10, max: max1 + 10 } }
+      }
+    });
+  }
+
+  // 🔹 Escala dinámica ±10 para TF,TT,TC
+  const todosValores2 = [].concat(...datasets2.map(d => d.data));
+  const min2 = Math.min(...todosValores2);
+  const max2 = Math.max(...todosValores2);
+
+  const ctx2 = document.getElementById('chartTFTTTC').getContext('2d');
+  if (chart2) {
+    chart2.data.labels = labels;
+    chart2.data.datasets = datasets2;
+    chart2.options.scales.y.min = min2 - 10;
+    chart2.options.scales.y.max = max2 + 10;
+    chart2.update();
+  } else {
+    chart2 = new Chart(ctx2, {
+      type: 'line',
+      data: { labels, datasets: datasets2 },
+      options: {
+        responsive: true,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { title: { display: true, text: 'TF, TT, TC vs Tiempo' } },
+        scales: { y: { min: min2 - 10, max: max2 + 10 } }
+      }
+    });
+  }
+}
+
+// Enviar datos
+async function enviarDatos() {
+  const datos = [
+    document.getElementById('maquina').value,
+    document.getElementById('motor').value,
+    document.getElementById('hora').value,
+    document.getElementById('fecha').value,
+    Number(document.getElementById('r').value),
+    Number(document.getElementById('s').value),
+    Number(document.getElementById('t').value),
+    Number(document.getElementById('tf').value),
+    Number(document.getElementById('tt').value),
+    Number(document.getElementById('tc').value)
+  ];
+
+  if (datos.includes("") || datos.includes(null) || datos.includes(undefined)) {
+    alert("Completa todos los campos");
+    return;
+  }
+
+  await fetch(sheetURL, {
+    method: 'POST',
+    body: JSON.stringify(datos)
+  });
+
+  alert("Datos guardados ✅");
+  loadData();
+}
+
+// Auto fecha y hora
+window.onload = () => {
+  const now = new Date();
+  document.getElementById('fecha').valueAsDate = now;
+  document.getElementById('hora').value = now.toTimeString().slice(0,5);
+};
+
+// Auto actualización cada 5 segundos
+setInterval(loadData, 180000);
+loadData();
+
+</script>
+
+</body>
+</html>
