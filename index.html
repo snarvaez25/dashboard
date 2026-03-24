@@ -88,24 +88,42 @@ let chart1;
 let chart2;
 
 // Cargar dropdown automáticamente
-async function loadDropdowns(data) {
-  const maquinas = [...new Set(data.slice(1).map(r => r[0]))];
-  const motores = [...new Set(data.slice(1).map(r => r[1]))];
+function loadDropdowns(data) {
+  const rows = data.slice(1);
+
+  const maquinas = [...new Set(rows.map(r => r[0]))];
 
   const selectMaq = document.getElementById('filtroMaquina');
   const selectMot = document.getElementById('filtroMotor');
 
-  selectMaq.innerHTML = '<option value="">Todas las máquinas</option>';
+  selectMaq.innerHTML = '<option value="">Todas</option>';
   maquinas.forEach(m => {
     selectMaq.innerHTML += `<option value="${m}">${m}</option>`;
   });
 
-  selectMot.innerHTML = '<option value="">Todos los motores</option>';
+  // 🔹 Evento cuando cambia máquina
+  selectMaq.onchange = () => {
+    const maqSeleccionada = selectMaq.value.toLowerCase();
+
+    const motoresFiltrados = rows
+      .filter(r => !maqSeleccionada || r[0].toLowerCase() === maqSeleccionada)
+      .map(r => r[1]);
+
+    const motoresUnicos = [...new Set(motoresFiltrados)];
+
+    selectMot.innerHTML = '<option value="">Todos</option>';
+    motoresUnicos.forEach(m => {
+      selectMot.innerHTML += `<option value="${m}">${m}</option>`;
+    });
+  };
+
+  // 🔹 Inicializar motores con todos
+  const motores = [...new Set(rows.map(r => r[1]))];
+  selectMot.innerHTML = '<option value="">Todos</option>';
   motores.forEach(m => {
     selectMot.innerHTML += `<option value="${m}">${m}</option>`;
   });
 }
-
 // Cargar datos y graficar
 async function loadData() {
   const res = await fetch(sheetURL);
