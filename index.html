@@ -1,19 +1,89 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Inspecciones Motores de Envases</title>
+  <title>Envases</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f7fa;
+      margin: 20px;
+      color: #333;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-radius: 10px 10px 0 0;
+      background: #dfe6ed;
+      transition: 0.3s;
+    }
+
+    .tab.active {
+      background: white;
+      font-weight: bold;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    }
+
+    .tab-content {
+      display: none;
+      background: white;
+      padding: 20px;
+      border-radius: 0 10px 10px 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
     .top-container {
       display: flex;
       gap: 40px;
       flex-wrap: wrap;
-      align-items: flex-start;
     }
 
     .box {
       flex: 1;
       min-width: 300px;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    select, input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      background: #4CAF50;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background: #43a047;
     }
 
     .charts-container {
@@ -25,74 +95,135 @@
     .chart-box {
       flex: 1;
       min-width: 300px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .form-grid-2col {
+      display: flex;
+      gap: 40px;
+    }
+
+    .col {
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      gap: 10px;
+      align-items: center;
     }
   </style>
 </head>
+
 <body>
 
-<div class="top-container">
+<div class="tabs">
+  <div class="tab active" onclick="cambiarTab('ingreso')">➕ Ingreso</div>
+  <div class="tab" onclick="cambiarTab('visualizacion')">📊 Visualización</div>
+</div>
 
-  <!-- 🔍 FILTROS -->
-  <div class="box">
-    <h2>🔍 Filtrar datos</h2>
+<div id="ingreso" class="tab-content active">
 
-    <select id="filtroMaquina"></select>
-    <select id="filtroMotor"></select>
-    <button onclick="loadData()">Aplicar filtro</button>
-  </div>
-
-  <!-- ➕ INGRESO -->
   <div class="box">
     <h2>➕ Ingresar datos</h2>
 
-    <!-- ✅ CAMBIO: ahora son select -->
+    <label>Máquina</label>
     <select id="maquina"></select>
+
+    <label>Equipo</label>
     <select id="motor"></select>
 
     <input type="time" id="hora">
     <input type="date" id="fecha">
 
-    <br><br>
+    <br>
 
-    <input type="number" id="r" placeholder="R">
-    <input type="number" id="s" placeholder="S">
-    <input type="number" id="t" placeholder="T">
-    <input type="number" id="tf" placeholder="TF">
-    <input type="number" id="tt" placeholder="TT">
-    <input type="number" id="tc" placeholder="TC">
+    <div class="form-grid-2col">
 
-    <br><br>
+      <div class="col">
+        <label>R:</label>
+        <input type="number" id="r">
+
+        <label>S:</label>
+        <input type="number" id="s">
+
+        <label>T:</label>
+        <input type="number" id="t">
+      </div>
+
+      <div class="col">
+        <label>TF:</label>
+        <input type="number" id="tf">
+
+        <label>TB:</label>
+        <input type="number" id="tb">
+
+        <label>TC:</label>
+        <input type="number" id="tc">
+      </div>
+
+    </div>
+
+    <br>
 
     <button onclick="enviarDatos()">Guardar</button>
   </div>
 
 </div>
 
-<hr>
+<div id="visualizacion" class="tab-content">
 
-<div class="charts-container">
-  <div class="chart-box">
-    <h2>📊 R, S, T</h2>
-    <canvas id="chartRST" width="400" height="300"></canvas>
+  <div class="top-container">
+
+    <div class="box">
+      <h2>🔍 Filtrar datos</h2>
+
+      <label>Máquina</label>
+      <select id="filtroMaquina"></select>
+
+      <label>Equipo</label>
+      <select id="filtroMotor"></select>
+
+      <button onclick="loadData()">Aplicar filtro</button>
+    </div>
+
   </div>
-  <div class="chart-box">
-    <h2>📊 TF, TT, TC</h2>
-    <canvas id="chartTFTTTC" width="400" height="300"></canvas>
+
+  <hr>
+
+  <div class="charts-container">
+    <div class="chart-box">
+      <h2>📊 R, S, T</h2>
+      <canvas id="chartRST"></canvas>
+    </div>
+
+    <div class="chart-box">
+      <h2>📊 TF, TB, TC</h2>
+      <canvas id="chartTFTBTC"></canvas>
+    </div>
   </div>
+
 </div>
 
 <script>
-const sheetURL = "https://script.google.com/macros/s/AKfycby1XhS-k_qEDs1CJFMH-R1G4t7uADZfw5cNMr4v6ox7Lv-yQE-BY6ing85TWvcKvA26/exec";
+const sheetURL = "https://script.google.com/macros/s/AKfycbzw9qjfWV0otwkTh7iFImbuZ9Sq1pkoHl5EphWyBvTcfOLa1KLsSkbShDFljewvLQ2B/exec";
 
 let chart1;
 let chart2;
+let globalData = [];
 
-// 🔹 NUEVO: llenar selects de ingreso
+function cambiarTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+  event.target.classList.add('active');
+  document.getElementById(tab).classList.add('active');
+}
+
 function loadSelectIngreso(data) {
-  const rows = data.slice(1);
+  globalData = data.slice(1);
 
-  const maquinas = [...new Set(rows.map(r => r[0]))];
-  const motores = [...new Set(rows.map(r => r[1]))];
+  const maquinas = [...new Set(globalData.map(r => r[0]))];
 
   const selectMaq = document.getElementById('maquina');
   const selectMot = document.getElementById('motor');
@@ -102,13 +233,24 @@ function loadSelectIngreso(data) {
     selectMaq.innerHTML += `<option value="${m}">${m}</option>`;
   });
 
-  selectMot.innerHTML = '<option value="">Seleccionar motor</option>';
-  motores.forEach(m => {
-    selectMot.innerHTML += `<option value="${m}">${m}</option>`;
-  });
+  selectMaq.onchange = () => {
+    const maq = selectMaq.value.toLowerCase();
+
+    const equipos = globalData
+      .filter(r => r[0].toLowerCase() === maq)
+      .map(r => r[1]);
+
+    const unicos = [...new Set(equipos)];
+
+    selectMot.innerHTML = '<option value="">Seleccionar equipo</option>';
+    unicos.forEach(e => {
+      selectMot.innerHTML += `<option value="${e}">${e}</option>`;
+    });
+  };
+
+  selectMot.innerHTML = '<option value="">Seleccionar equipo</option>';
 }
 
-// Cargar dropdown filtros
 function loadDropdowns(data) {
   const rows = data.slice(1);
 
@@ -144,14 +286,13 @@ function loadDropdowns(data) {
   });
 }
 
-// Cargar datos
 async function loadData() {
   const res = await fetch(sheetURL);
   const data = await res.json();
 
   if (document.getElementById('filtroMaquina').options.length === 0) {
     loadDropdowns(data);
-    loadSelectIngreso(data); // ✅ NUEVO
+    loadSelectIngreso(data);
   }
 
   const rows = data.slice(1);
@@ -181,7 +322,7 @@ async function loadData() {
 
   const datasets2 = [
     { label: 'TF', data: filtrados.map(r => r[7]), borderColor: 'orange' },
-    { label: 'TT', data: filtrados.map(r => r[8]), borderColor: 'purple' },
+    { label: 'TB', data: filtrados.map(r => r[8]), borderColor: 'purple' },
     { label: 'TC', data: filtrados.map(r => r[9]), borderColor: 'brown' }
   ];
 
@@ -191,26 +332,19 @@ async function loadData() {
     chart1.data.datasets = datasets1;
     chart1.update();
   } else {
-    chart1 = new Chart(ctx1, {
-      type: 'line',
-      data: { labels, datasets: datasets1 }
-    });
+    chart1 = new Chart(ctx1, { type: 'line', data: { labels, datasets: datasets1 } });
   }
 
-  const ctx2 = document.getElementById('chartTFTTTC').getContext('2d');
+  const ctx2 = document.getElementById('chartTFTBTC').getContext('2d');
   if (chart2) {
     chart2.data.labels = labels;
     chart2.data.datasets = datasets2;
     chart2.update();
   } else {
-    chart2 = new Chart(ctx2, {
-      type: 'line',
-      data: { labels, datasets: datasets2 }
-    });
+    chart2 = new Chart(ctx2, { type: 'line', data: { labels, datasets: datasets2 } });
   }
 }
 
-// Enviar datos (SIN CAMBIOS)
 async function enviarDatos() {
   const datos = [
     document.getElementById('maquina').value,
@@ -221,7 +355,7 @@ async function enviarDatos() {
     Number(document.getElementById('s').value),
     Number(document.getElementById('t').value),
     Number(document.getElementById('tf').value),
-    Number(document.getElementById('tt').value),
+    Number(document.getElementById('tb').value),
     Number(document.getElementById('tc').value)
   ];
 
