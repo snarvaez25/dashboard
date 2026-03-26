@@ -158,13 +158,11 @@
   <div class="box">
     <h2>➕ Ingresar datos</h2>
 
-    <!-- Máquina -->
     <label>Máquina</label><br>
     <select id="maquina"></select>
 
     <br>
 
-    <!-- Equipo en nueva fila -->
     <label>Equipo</label><br>
     <select id="motor"></select>
 
@@ -271,8 +269,6 @@ function cambiarTab(tab) {
 }
 
 function loadSelectIngreso(data) {
-  globalData = data.slice(1);
-
   const maquinas = [...new Set(globalData.map(r => r[0]))];
 
   const selectMaq = document.getElementById('maquina');
@@ -301,10 +297,8 @@ function loadSelectIngreso(data) {
   selectMot.innerHTML = '<option value="">Seleccionar equipo</option>';
 }
 
-function loadDropdowns(data) {
-  const rows = data.slice(1);
-
-  const maquinas = [...new Set(rows.map(r => r[0]))];
+function loadDropdowns() {
+  const maquinas = [...new Set(globalData.map(r => r[0]))];
 
   const selectMaq = document.getElementById('filtroMaquina');
   const selectMot = document.getElementById('filtroMotor');
@@ -317,7 +311,7 @@ function loadDropdowns(data) {
   selectMaq.onchange = () => {
     const maqSeleccionada = selectMaq.value.toLowerCase();
 
-    const motoresFiltrados = rows
+    const motoresFiltrados = globalData
       .filter(r => !maqSeleccionada || r[0].toLowerCase() === maqSeleccionada)
       .map(r => r[1]);
 
@@ -329,7 +323,7 @@ function loadDropdowns(data) {
     });
   };
 
-  const motores = [...new Set(rows.map(r => r[1]))];
+  const motores = [...new Set(globalData.map(r => r[1]))];
   selectMot.innerHTML = '<option value="">Todos</option>';
   motores.forEach(m => {
     selectMot.innerHTML += `<option value="${m}">${m}</option>`;
@@ -337,20 +331,21 @@ function loadDropdowns(data) {
 }
 
 async function loadData() {
-  const res = await fetch(sheetURL);
-  const data = await res.json();
 
-  if (document.getElementById('filtroMaquina').options.length === 0) {
-    loadDropdowns(data);
-    loadSelectIngreso(data);
+  if (globalData.length === 0) {
+    const res = await fetch(sheetURL);
+    const data = await res.json();
+
+    globalData = data.slice(1);
+
+    loadDropdowns();
+    loadSelectIngreso();
   }
-
-  const rows = data.slice(1);
 
   const maquinaFiltro = document.getElementById('filtroMaquina').value.toLowerCase();
   const motorFiltro = document.getElementById('filtroMotor').value.toLowerCase();
 
-  const filtrados = rows.filter(r => {
+  const filtrados = globalData.filter(r => {
     const maq = r[0].toLowerCase();
     const mot = r[1].toLowerCase();
     return (
@@ -420,6 +415,7 @@ async function enviarDatos() {
   });
 
   alert("Datos guardados ✅");
+  globalData = []; // 🔥 fuerza recarga
   loadData();
 }
 
@@ -429,7 +425,11 @@ window.onload = () => {
   document.getElementById('hora').value = now.toTimeString().slice(0,5);
 };
 
-setInterval(loadData, 180000);
+setInterval(() => {
+  globalData = [];
+  loadData();
+}, 180000);
+
 loadData();
 </script>
 
