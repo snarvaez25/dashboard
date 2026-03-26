@@ -63,7 +63,20 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
 
-    select, input {
+    select, input[type="time"], input[type="date"] {
+      width: auto;
+      min-width: 120px;
+      max-width: 200px;
+      padding: 5px 8px;
+      font-size: 13px;
+      margin-top: 5px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      display: inline-block;
+    }
+
+    input[type="number"] {
       width: 100%;
       padding: 8px;
       margin-top: 5px;
@@ -112,6 +125,24 @@
       gap: 10px;
       align-items: center;
     }
+
+    .filtro-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .filtro-row {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .filtro-boton {
+      margin-top: 10px;
+    }
+
   </style>
 </head>
 
@@ -127,16 +158,22 @@
   <div class="box">
     <h2>➕ Ingresar datos</h2>
 
-    <label>Máquina</label>
+    <!-- Máquina -->
+    <label>Máquina</label><br>
     <select id="maquina"></select>
 
-    <label>Equipo</label>
+    <br>
+
+    <!-- Equipo en nueva fila -->
+    <label>Equipo</label><br>
     <select id="motor"></select>
+
+    <br>
 
     <input type="time" id="hora">
     <input type="date" id="fecha">
 
-    <br>
+    <br><br>
 
     <div class="form-grid-2col">
 
@@ -178,13 +215,26 @@
     <div class="box">
       <h2>🔍 Filtrar datos</h2>
 
-      <label>Máquina</label>
-      <select id="filtroMaquina"></select>
+      <div class="filtro-container">
 
-      <label>Equipo</label>
-      <select id="filtroMotor"></select>
+        <div class="filtro-row">
+          <div>
+            <label>Máquina</label><br>
+            <select id="filtroMaquina"></select>
+          </div>
 
-      <button onclick="loadData()">Aplicar filtro</button>
+          <div>
+            <label>Equipo</label><br>
+            <select id="filtroMotor"></select>
+          </div>
+        </div>
+
+        <div class="filtro-boton">
+          <button onclick="loadData()">Aplicar filtro</button>
+        </div>
+
+      </div>
+
     </div>
 
   </div>
