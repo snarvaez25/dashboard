@@ -76,6 +76,11 @@
       display: inline-block;
     }
 
+    /* 🔒 OCULTAR HORA Y FECHA */
+    #hora, #fecha {
+      display: none;
+    }
+
     input[type="number"] {
       width: 100%;
       padding: 8px;
@@ -330,6 +335,14 @@ function loadDropdowns() {
   });
 }
 
+function checkTrendAlert(dataset, label) {
+  if (dataset.length < 3) return false;
+  const last3 = dataset.slice(-3);
+  if (last3[0] < last3[1] && last3[1] < last3[2]) {
+    alert(`⚠️ El equipo muestra tendencia de subida en ${label}`);
+  }
+}
+
 async function loadData() {
 
   if (globalData.length === 0) {
@@ -380,6 +393,8 @@ async function loadData() {
     chart1 = new Chart(ctx1, { type: 'line', data: { labels, datasets: datasets1 } });
   }
 
+  datasets1.forEach(d => checkTrendAlert(d.data, d.label));
+
   const ctx2 = document.getElementById('chartTFTBTC').getContext('2d');
   if (chart2) {
     chart2.data.labels = labels;
@@ -391,6 +406,12 @@ async function loadData() {
 }
 
 async function enviarDatos() {
+
+  // 🔥 GENERAR FECHA Y HORA AUTOMÁTICA
+  const now = new Date();
+  document.getElementById('fecha').valueAsDate = now;
+  document.getElementById('hora').value = now.toTimeString().slice(0,5);
+
   const datos = [
     document.getElementById('maquina').value,
     document.getElementById('motor').value,
@@ -415,14 +436,12 @@ async function enviarDatos() {
   });
 
   alert("Datos guardados ✅");
-  globalData = []; // 🔥 fuerza recarga
+  globalData = [];
   loadData();
 }
 
 window.onload = () => {
-  const now = new Date();
-  document.getElementById('fecha').valueAsDate = now;
-  document.getElementById('hora').value = now.toTimeString().slice(0,5);
+  loadData();
 };
 
 setInterval(() => {
