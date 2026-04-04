@@ -76,7 +76,6 @@
       display: inline-block;
     }
 
-    /* 🔒 OCULTAR HORA Y FECHA */
     #hora, #fecha {
       display: none;
     }
@@ -126,7 +125,7 @@
 
     .col {
       display: grid;
-      grid-template-columns: 50px 1fr;
+      grid-template-columns: 120px 1fr;
       gap: 10px;
       align-items: center;
     }
@@ -168,6 +167,11 @@
 
     <br>
 
+    <label>Tipo</label><br>
+    <select id="tipo"></select>
+
+    <br>
+
     <label>Equipo</label><br>
     <select id="motor"></select>
 
@@ -192,13 +196,13 @@
       </div>
 
       <div class="col">
-        <label>TF:</label>
+        <label>T Frontal:</label>
         <input type="number" id="tf">
 
-        <label>TB:</label>
+        <label>T Bobina:</label>
         <input type="number" id="tb">
 
-        <label>TC:</label>
+        <label>T Caracol:</label>
         <input type="number" id="tc">
       </div>
 
@@ -227,6 +231,11 @@
           </div>
 
           <div>
+            <label>Tipo</label><br>
+            <select id="filtroTipo"></select>
+          </div>
+
+          <div>
             <label>Equipo</label><br>
             <select id="filtroMotor"></select>
           </div>
@@ -251,7 +260,7 @@
     </div>
 
     <div class="chart-box">
-      <h2>📊 TF, TB, TC</h2>
+      <h2>📊 T Frontal, T Bobina, T Caracol</h2>
       <canvas id="chartTFTBTC"></canvas>
     </div>
   </div>
@@ -273,11 +282,12 @@ function cambiarTab(tab) {
   document.getElementById(tab).classList.add('active');
 }
 
-function loadSelectIngreso(data) {
-  const maquinas = [...new Set(globalData.map(r => r[0]))];
-
+function loadSelectIngreso() {
   const selectMaq = document.getElementById('maquina');
+  const selectTipo = document.getElementById('tipo');
   const selectMot = document.getElementById('motor');
+
+  const maquinas = [...new Set(globalData.map(r => r[0]))];
 
   selectMaq.innerHTML = '<option value="">Seleccionar máquina</option>';
   maquinas.forEach(m => {
@@ -287,9 +297,30 @@ function loadSelectIngreso(data) {
   selectMaq.onchange = () => {
     const maq = selectMaq.value.toLowerCase();
 
-    const equipos = globalData
+    const tipos = globalData
       .filter(r => r[0].toLowerCase() === maq)
       .map(r => r[1]);
+
+    const tiposUnicos = [...new Set(tipos)];
+
+    selectTipo.innerHTML = '<option value="">Seleccionar tipo</option>';
+    tiposUnicos.forEach(t => {
+      selectTipo.innerHTML += `<option value="${t}">${t}</option>`;
+    });
+
+    selectTipo.onchange();
+  };
+
+  selectTipo.onchange = () => {
+    const maq = selectMaq.value.toLowerCase();
+    const tipo = selectTipo.value.toLowerCase();
+
+    const equipos = globalData
+      .filter(r =>
+        r[0].toLowerCase() === maq &&
+        r[1].toLowerCase() === tipo
+      )
+      .map(r => r[2]);
 
     const unicos = [...new Set(equipos)];
 
@@ -298,15 +329,14 @@ function loadSelectIngreso(data) {
       selectMot.innerHTML += `<option value="${e}">${e}</option>`;
     });
   };
-
-  selectMot.innerHTML = '<option value="">Seleccionar equipo</option>';
 }
 
 function loadDropdowns() {
-  const maquinas = [...new Set(globalData.map(r => r[0]))];
-
   const selectMaq = document.getElementById('filtroMaquina');
+  const selectTipo = document.getElementById('filtroTipo');
   const selectMot = document.getElementById('filtroMotor');
+
+  const maquinas = [...new Set(globalData.map(r => r[0]))];
 
   selectMaq.innerHTML = '<option value="">Todas</option>';
   maquinas.forEach(m => {
@@ -314,13 +344,34 @@ function loadDropdowns() {
   });
 
   selectMaq.onchange = () => {
-    const maqSeleccionada = selectMaq.value.toLowerCase();
+    const maq = selectMaq.value.toLowerCase();
 
-    const motoresFiltrados = globalData
-      .filter(r => !maqSeleccionada || r[0].toLowerCase() === maqSeleccionada)
+    const tipos = globalData
+      .filter(r => !maq || r[0].toLowerCase() === maq)
       .map(r => r[1]);
 
-    const motoresUnicos = [...new Set(motoresFiltrados)];
+    const tiposUnicos = [...new Set(tipos)];
+
+    selectTipo.innerHTML = '<option value="">Todos</option>';
+    tiposUnicos.forEach(t => {
+      selectTipo.innerHTML += `<option value="${t}">${t}</option>`;
+    });
+
+    selectTipo.onchange();
+  };
+
+  selectTipo.onchange = () => {
+    const maq = selectMaq.value.toLowerCase();
+    const tipo = selectTipo.value.toLowerCase();
+
+    const motores = globalData
+      .filter(r =>
+        (!maq || r[0].toLowerCase() === maq) &&
+        (!tipo || r[1].toLowerCase() === tipo)
+      )
+      .map(r => r[2]);
+
+    const motoresUnicos = [...new Set(motores)];
 
     selectMot.innerHTML = '<option value="">Todos</option>';
     motoresUnicos.forEach(m => {
@@ -328,11 +379,7 @@ function loadDropdowns() {
     });
   };
 
-  const motores = [...new Set(globalData.map(r => r[1]))];
-  selectMot.innerHTML = '<option value="">Todos</option>';
-  motores.forEach(m => {
-    selectMot.innerHTML += `<option value="${m}">${m}</option>`;
-  });
+  selectMaq.onchange();
 }
 
 function checkTrendAlert(dataset, label) {
@@ -356,32 +403,35 @@ async function loadData() {
   }
 
   const maquinaFiltro = document.getElementById('filtroMaquina').value.toLowerCase();
+  const tipoFiltro = document.getElementById('filtroTipo').value.toLowerCase();
   const motorFiltro = document.getElementById('filtroMotor').value.toLowerCase();
 
   const filtrados = globalData.filter(r => {
     const maq = r[0].toLowerCase();
-    const mot = r[1].toLowerCase();
+    const tipo = r[1].toLowerCase();
+    const mot = r[2].toLowerCase();
     return (
       (maquinaFiltro === "" || maq === maquinaFiltro) &&
+      (tipoFiltro === "" || tipo === tipoFiltro) &&
       (motorFiltro === "" || mot === motorFiltro)
     );
   });
 
   const labels = filtrados.map(r => {
-    const fecha = new Date(r[3]);
+    const fecha = new Date(r[4]);
     return fecha.toISOString().split('T')[0];
   });
 
   const datasets1 = [
-    { label: 'R', data: filtrados.map(r => r[4]), borderColor: 'red' },
-    { label: 'S', data: filtrados.map(r => r[5]), borderColor: 'blue' },
-    { label: 'T', data: filtrados.map(r => r[6]), borderColor: 'green' }
+    { label: 'R', data: filtrados.map(r => r[5]), borderColor: 'red' },
+    { label: 'S', data: filtrados.map(r => r[6]), borderColor: 'blue' },
+    { label: 'T', data: filtrados.map(r => r[7]), borderColor: 'green' }
   ];
 
   const datasets2 = [
-    { label: 'TF', data: filtrados.map(r => r[7]), borderColor: 'orange' },
-    { label: 'TB', data: filtrados.map(r => r[8]), borderColor: 'purple' },
-    { label: 'TC', data: filtrados.map(r => r[9]), borderColor: 'brown' }
+    { label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange' },
+    { label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple' },
+    { label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown' }
   ];
 
   const ctx1 = document.getElementById('chartRST').getContext('2d');
@@ -407,13 +457,13 @@ async function loadData() {
 
 async function enviarDatos() {
 
-  // 🔥 GENERAR FECHA Y HORA AUTOMÁTICA
   const now = new Date();
   document.getElementById('fecha').valueAsDate = now;
   document.getElementById('hora').value = now.toTimeString().slice(0,5);
 
   const datos = [
     document.getElementById('maquina').value,
+    document.getElementById('tipo').value,
     document.getElementById('motor').value,
     document.getElementById('hora').value,
     document.getElementById('fecha').value,
