@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Envases - Control de Consumo</title>
+  <title>Envases - Sistema de Control</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
@@ -51,11 +51,8 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
 
-    select, input[type="time"], input[type="date"] {
-      width: auto;
-      min-width: 120px;
-      padding: 5px 8px;
-      font-size: 13px;
+    select, input[type="time"], input[type="date"], input[type="number"] {
+      padding: 8px;
       margin-top: 5px;
       margin-bottom: 10px;
       border-radius: 6px;
@@ -63,15 +60,6 @@
     }
 
     #hora, #fecha { display: none; }
-
-    input[type="number"] {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      margin-bottom: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
 
     button {
       padding: 10px 20px;
@@ -112,6 +100,9 @@
       margin-bottom: 15px;
       border-radius: 8px;
     }
+
+    .alert-card h3 { margin: 0 0 5px 0; color: #d32f2f; font-size: 16px; }
+    .no-alerts { color: #4CAF50; font-weight: bold; text-align: center; padding: 20px; }
   </style>
 </head>
 
@@ -132,9 +123,9 @@
     <select id="tipo" onchange="gestionarVisibilidadIngreso()"></select><br>
     <label>Equipo</label><br>
     <select id="motor" onchange="gestionarVisibilidadIngreso()"></select><br>
-    <input type="time" id="hora">
-    <input type="date" id="fecha">
-    <br>
+    
+    <input type="time" id="hora"><input type="date" id="fecha">
+
     <div class="form-grid-2col">
       <div class="col" id="col-rst">
         <label>R:</label><input type="number" id="r">
@@ -152,16 +143,12 @@
 </div>
 
 <div id="visualizacion" class="tab-content">
-  <div class="top-container">
-    <div class="box">
-      <h2>🔍 Filtrar datos</h2>
-      <div class="filtro-row">
-        <select id="filtroMaquina"></select>
-        <select id="filtroTipo" onchange="gestionarVisibilidadVisualizacion()"></select>
-        <select id="filtroMotor" onchange="gestionarVisibilidadVisualizacion()"></select>
-        <button onclick="loadData()">Aplicar filtro</button>
-      </div>
-    </div>
+  <div class="box">
+    <h2>🔍 Filtrar datos</h2>
+    <select id="filtroMaquina"></select>
+    <select id="filtroTipo" onchange="gestionarVisibilidadVisualizacion()"></select>
+    <select id="filtroMotor" onchange="gestionarVisibilidadVisualizacion()"></select>
+    <button onclick="loadData()">Aplicar filtro</button>
   </div>
   <hr>
   <div class="charts-container">
@@ -170,7 +157,7 @@
       <canvas id="chartRST"></canvas>
     </div>
     <div class="chart-box">
-      <h2 id="titulo-grafico2">📊 Temperaturas</h2>
+      <h2 id="titulo-grafico2">📊 Temperaturas / Nivel</h2>
       <canvas id="chartTFTBTC"></canvas>
     </div>
   </div>
@@ -179,213 +166,147 @@
 <div id="resumen" class="tab-content">
   <div class="box">
     <h2>📋 Resumen de Alertas</h2>
+    <p>Las alertas permanecen activas hasta que el equipo registre un descenso en el valor.</p>
     <div id="lista-alertas"></div>
   </div>
 </div>
 
 <script>
 const sheetURL = "https://script.google.com/macros/s/AKfycbzw9qjfWV0otwkTh7iFImbuZ9Sq1pkoHl5EphWyBvTcfOLa1KLsSkbShDFljewvLQ2B/exec";
+let chart1, chart2, globalData = [];
 
-let chart1, chart2;
-let globalData = [];
-
-// Función para normalizar texto (quitar espacios y a minúsculas)
-const normalizar = (txt) => txt ? txt.toString().trim().toLowerCase() : "";
+const normalizar = (t) => t ? t.toString().trim().toLowerCase() : "";
 
 function cambiarTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  const currentTab = Array.from(document.querySelectorAll('.tab')).find(t => t.getAttribute('onclick').includes(tab));
-  if(currentTab) currentTab.classList.add('active');
+  document.querySelector(`[onclick*="${tab}"]`).classList.add('active');
   document.getElementById(tab).classList.add('active');
+}
+
+// LÓGICA DE ALERTAS: Persiste hasta que baje
+function evaluarAlertaPersistente(serie) {
+  if (serie.length < 3) return false;
+  let enAlerta = false;
+  for (let i = 2; i < serie.length; i++) {
+    const prev = serie[i-1], act = serie[i], anteprev = serie[i-2];
+    if (anteprev < prev && prev < act) enAlerta = true;
+    else if (enAlerta && act < prev) enAlerta = false;
+  }
+  return enAlerta;
+}
+
+function actualizarResumen() {
+  const contenedor = document.getElementById('lista-alertas');
+  contenedor.innerHTML = "";
+  const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
+  let huboAlertas = false;
+
+  ids.forEach(id => {
+    const [m, t, e] = id.split('|');
+    const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
+    const vars = [{n:'R', i:5}, {n:'S', i:6}, {n:'T', i:7}, {n:'T Frontal', i:8}, {n:'T Bobina', i:9}, {n:'T Caracol', i:10}];
+    let activas = [];
+    
+    vars.forEach(v => {
+      const serie = filtrados.map(r => Number(r[v.i])).filter(val => val !== 0);
+      if (evaluarAlertaPersistente(serie)) activas.push(v.n);
+    });
+
+    if (activas.length > 0) {
+      huboAlertas = true;
+      contenedor.innerHTML += `<div class="alert-card"><h3>⚠️ ${m} - ${e}</h3><p>Tendencia de alza persistente en: <b>${activas.join(', ')}</b></p></div>`;
+    }
+  });
+  if (!huboAlertas) contenedor.innerHTML = '<p class="no-alerts">✅ Operación normal en todos los equipos.</p>';
 }
 
 function gestionarVisibilidadIngreso() {
   const tipo = normalizar(document.getElementById('tipo').value);
   const motor = normalizar(document.getElementById('motor').value);
-  const colRST = document.getElementById('col-rst');
-  const wrapTB = document.getElementById('wrapper-tb');
-  const wrapTC = document.getElementById('wrapper-tc');
-  const labelTF = document.getElementById('label-tf');
+  const colRST = document.getElementById('col-rst'), wB = document.getElementById('wrapper-tb'), wC = document.getElementById('wrapper-tc'), lF = document.getElementById('label-tf');
 
-  colRST.style.visibility = "visible";
-  wrapTB.style.display = "contents";
-  wrapTC.style.display = "contents";
-  labelTF.innerText = "T Frontal:";
-
-  if (tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio")) {
-    colRST.style.visibility = "hidden";
-    wrapTB.style.display = "none";
-    wrapTC.style.display = "none";
-    if (tipo === "hidráulico" && motor === "reservorio") labelTF.innerText = "Nivel (%):";
-  } else if (tipo === "motor") {
-    wrapTC.style.display = "none";
-  }
+  colRST.style.visibility = (tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio")) ? "hidden" : "visible";
+  wB.style.display = (tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio")) ? "none" : "contents";
+  wC.style.display = (tipo === "caja" || tipo === "motor" || (tipo === "hidráulico" && motor === "reservorio")) ? "none" : "contents";
+  lF.innerText = (tipo === "hidráulico" && motor === "reservorio") ? "Nivel (%):" : "T Frontal:";
 }
 
 function gestionarVisibilidadVisualizacion() {
   const tipo = normalizar(document.getElementById('filtroTipo').value);
   const motor = normalizar(document.getElementById('filtroMotor').value);
-  const containerRST = document.getElementById('container-chartRST');
-  const tituloGrafico2 = document.getElementById('titulo-grafico2');
+  const cRST = document.getElementById('container-chartRST'), tit2 = document.getElementById('titulo-grafico2');
 
-  containerRST.style.display = "block";
-  if (tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio")) {
-    containerRST.style.display = "none";
-    tituloGrafico2.innerText = (tipo === "caja") ? "📊 T Frontal" : "📊 Nivel";
-  } else {
-    tituloGrafico2.innerText = (tipo === "motor") ? "📊 T Frontal, T Bobina" : "📊 T Frontal, T Bobina, T Caracol";
-  }
+  cRST.style.display = (tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio")) ? "none" : "block";
+  tit2.innerText = (tipo === "hidráulico" && motor === "reservorio") ? "📊 Nivel" : (tipo === "caja") ? "📊 T Frontal" : "📊 Temperaturas";
 }
 
 async function loadData() {
   if (globalData.length === 0) {
     const res = await fetch(sheetURL);
-    const data = await res.json();
-    globalData = data.slice(1);
+    globalData = (await res.json()).slice(1);
     loadDropdowns();
     loadSelectIngreso();
   }
 
-  const maquinaFiltro = document.getElementById('filtroMaquina').value;
-  const tipoFiltro = document.getElementById('filtroTipo').value;
-  const motorFiltro = document.getElementById('filtroMotor').value;
-
-  const filtrados = globalData.filter(r => 
-    (maquinaFiltro === "" || r[0] === maquinaFiltro) && 
-    (tipoFiltro === "" || r[1] === tipoFiltro) && 
-    (motorFiltro === "" || r[2] === motorFiltro)
-  );
-
+  const mF = document.getElementById('filtroMaquina').value, tF = document.getElementById('filtroTipo').value, eF = document.getElementById('filtroMotor').value;
+  const filtrados = globalData.filter(r => (mF===""||r[0]===mF) && (tF===""||r[1]===tF) && (eF===""||r[2]===eF));
   const labels = filtrados.map(r => new Date(r[4]).toISOString().split('T')[0]);
 
-  // Datasets principales
-  const datasets1 = [
-    { label: 'R', data: filtrados.map(r => r[5]), borderColor: 'red', fill: false },
-    { label: 'S', data: filtrados.map(r => r[6]), borderColor: 'blue', fill: false },
-    { label: 'T', data: filtrados.map(r => r[7]), borderColor: 'green', fill: false }
+  const ds1 = [
+    { label: 'R', data: filtrados.map(r => r[5]), borderColor: 'red', fill:false },
+    { label: 'S', data: filtrados.map(r => r[6]), borderColor: 'blue', fill:false },
+    { label: 'T', data: filtrados.map(r => r[7]), borderColor: 'green', fill:false }
   ];
 
-  let datasets2 = [];
-  const tipoL = normalizar(tipoFiltro);
-  const motorL = normalizar(motorFiltro);
-
-  if (tipoL === "hidráulico" && motorL === "reservorio") {
-    datasets2.push({ label: 'Nivel', data: filtrados.map(r => r[8]), borderColor: 'orange', fill: false });
-  } else {
-    datasets2.push({ label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange', fill: false });
-    if (tipoL !== "caja") {
-      datasets2.push({ label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple', fill: false });
-      if (tipoL !== "motor") {
-        datasets2.push({ label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown', fill: false });
-      }
-    }
+  // Líneas de Consumo Maq66 - Blower - Vacio Robot
+  if (normalizar(mF).includes("66") && normalizar(tF).includes("blower") && normalizar(eF).includes("vacio")) {
+    ds1.push(
+      { label: 'NOMINAL (5)', data: Array(labels.length).fill(5), borderColor: 'rgba(255,0,0,0.6)', borderDash: [10,5], pointRadius:0, borderWidth:3, fill:false },
+      { label: 'IDEAL (4)', data: Array(labels.length).fill(4), borderColor: 'rgba(0,0,255,0.6)', borderDash: [5,5], pointRadius:0, borderWidth:2, fill:false }
+    );
   }
 
-  // --- LÓGICA DE LÍNEAS DE LÍMITE (SOLO MAQ66, BLOWER, VACIO ROBOT) ---
-  const maqNorm = normalizar(maquinaFiltro);
-  const tipoNorm = normalizar(tipoFiltro);
-  const motorNorm = normalizar(motorFiltro);
-
-  // Verificación flexible: Detecta si la máquina contiene "66", el tipo es "blower" y el motor contiene "vacio"
-  if (maqNorm.includes("66") && tipoNorm === "blower" && motorNorm.includes("vacio")) {
-    const limitNominal = new Array(labels.length).fill(5);
-    const limitIdeal = new Array(labels.length).fill(4);
-
-    const refDatasets = [
-      {
-        label: 'NOMINAL (Límite 5A)',
-        data: limitNominal,
-        borderColor: 'rgba(255, 0, 0, 0.8)',
-        borderDash: [10, 5],
-        borderWidth: 3,
-        pointRadius: 0,
-        fill: false,
-        order: -1 // Forzar que aparezca al frente
-      },
-      {
-        label: 'IDEAL (4A)',
-        data: limitIdeal,
-        borderColor: 'rgba(0, 0, 255, 0.8)',
-        borderDash: [5, 5],
-        borderWidth: 2,
-        pointRadius: 0,
-        fill: false,
-        order: -1
-      }
-    ];
-
-    datasets1.push(...refDatasets);
-    // Opcional: También en el gráfico 2 si quieres ver límites allí
-    // datasets2.push(...refDatasets); 
+  const ds2 = [{ label: 'T Frontal / Nivel', data: filtrados.map(r => r[8]), borderColor: 'orange', fill:false }];
+  if (normalizar(tF) !== "caja") {
+    ds2.push({ label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple', fill:false });
+    if (normalizar(tF) !== "motor") ds2.push({ label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown', fill:false });
   }
 
-  // Renderizado de Gráficos
-  actualizarGrafico('chartRST', labels, datasets1, chart1, (c) => chart1 = c);
-  actualizarGrafico('chartTFTBTC', labels, datasets2, chart2, (c) => chart2 = c);
+  actualizarChart('chartRST', labels, ds1, chart1, (c) => chart1 = c);
+  actualizarChart('chartTFTBTC', labels, ds2, chart2, (c) => chart2 = c);
 }
 
-function actualizarGrafico(id, labels, datasets, chartObj, saveRef) {
+function actualizarChart(id, labels, datasets, obj, save) {
   const ctx = document.getElementById(id).getContext('2d');
-  if (chartObj) {
-    chartObj.data.labels = labels;
-    chartObj.data.datasets = datasets;
-    chartObj.update();
-  } else {
-    const newChart = new Chart(ctx, {
-      type: 'line',
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        scales: { y: { beginAtZero: false } }
-      }
-    });
-    saveRef(newChart);
-  }
+  if (obj) { obj.data.labels = labels; obj.data.datasets = datasets; obj.update(); }
+  else { save(new Chart(ctx, { type: 'line', data: { labels, datasets } })); }
 }
 
-// Carga de selectores (Igual que el original)
 function loadSelectIngreso() {
-  const selectMaq = document.getElementById('maquina');
-  const maquinas = [...new Set(globalData.map(r => r[0]))];
-  selectMaq.innerHTML = '<option value="">Seleccionar máquina</option>';
-  maquinas.forEach(m => selectMaq.innerHTML += `<option value="${m}">${m}</option>`);
-  
-  selectMaq.onchange = () => {
-    const tipos = [...new Set(globalData.filter(r => r[0] === selectMaq.value).map(r => r[1]))];
-    const selectTipo = document.getElementById('tipo');
-    selectTipo.innerHTML = '<option value="">Seleccionar tipo</option>';
-    tipos.forEach(t => selectTipo.innerHTML += `<option value="${t}">${t}</option>`);
+  const sM = document.getElementById('maquina');
+  sM.innerHTML = '<option value="">Seleccionar máquina</option>' + [...new Set(globalData.map(r => r[0]))].map(m => `<option value="${m}">${m}</option>`).join('');
+  sM.onchange = () => {
+    const tipos = [...new Set(globalData.filter(r => r[0] === sM.value).map(r => r[1]))];
+    document.getElementById('tipo').innerHTML = '<option value="">Tipo</option>' + tipos.map(t => `<option value="${t}">${t}</option>`).join('');
   };
-
   document.getElementById('tipo').onchange = () => {
-    const equipos = [...new Set(globalData.filter(r => r[0] === selectMaq.value && r[1] === document.getElementById('tipo').value).map(r => r[2]))];
-    const selectMot = document.getElementById('motor');
-    selectMot.innerHTML = '<option value="">Seleccionar equipo</option>';
-    equipos.forEach(e => selectMot.innerHTML += `<option value="${e}">${e}</option>`);
+    const equipos = [...new Set(globalData.filter(r => r[0] === sM.value && r[1] === document.getElementById('tipo').value).map(r => r[2]))];
+    document.getElementById('motor').innerHTML = '<option value="">Equipo</option>' + equipos.map(e => `<option value="${e}">${e}</option>`).join('');
     gestionarVisibilidadIngreso();
   };
 }
 
 function loadDropdowns() {
-  const sMaq = document.getElementById('filtroMaquina');
-  const maquinas = [...new Set(globalData.map(r => r[0]))];
-  sMaq.innerHTML = '<option value="">Todas</option>';
-  maquinas.forEach(m => sMaq.innerHTML += `<option value="${m}">${m}</option>`);
-
-  sMaq.onchange = () => {
-    const tipos = [...new Set(globalData.filter(r => !sMaq.value || r[0] === sMaq.value).map(r => r[1]))];
-    const sTipo = document.getElementById('filtroTipo');
-    sTipo.innerHTML = '<option value="">Todos</option>';
-    tipos.forEach(t => sTipo.innerHTML += `<option value="${t}">${t}</option>`);
+  const sM = document.getElementById('filtroMaquina');
+  sM.innerHTML = '<option value="">Todas</option>' + [...new Set(globalData.map(r => r[0]))].map(m => `<option value="${m}">${m}</option>`).join('');
+  sM.onchange = () => {
+    const tipos = [...new Set(globalData.filter(r => !sM.value || r[0] === sM.value).map(r => r[1]))];
+    document.getElementById('filtroTipo').innerHTML = '<option value="">Todos</option>' + tipos.map(t => `<option value="${t}">${t}</option>`).join('');
   };
-
   document.getElementById('filtroTipo').onchange = () => {
-    const motores = [...new Set(globalData.filter(r => (!sMaq.value || r[0] === sMaq.value) && (!document.getElementById('filtroTipo').value || r[1] === document.getElementById('filtroTipo').value)).map(r => r[2]))];
-    const sMot = document.getElementById('filtroMotor');
-    sMot.innerHTML = '<option value="">Todos</option>';
-    motores.forEach(m => sMot.innerHTML += `<option value="${m}">${m}</option>`);
-    gestionarVisibilidadVisualizacion();
+    const motores = [...new Set(globalData.filter(r => (!sM.value || r[0] === sM.value) && (!document.getElementById('filtroTipo').value || r[1] === document.getElementById('filtroTipo').value)).map(r => r[2]))];
+    document.getElementById('filtroMotor').innerHTML = '<option value="">Todos</option>' + motores.map(e => `<option value="${e}">${e}</option>`).join('');
   };
 }
 
@@ -393,30 +314,13 @@ async function enviarDatos() {
   const now = new Date();
   document.getElementById('fecha').valueAsDate = now;
   document.getElementById('hora').value = now.toTimeString().slice(0,5);
-  
-  const datos = [
-    document.getElementById('maquina').value,
-    document.getElementById('tipo').value,
-    document.getElementById('motor').value,
-    document.getElementById('hora').value,
-    document.getElementById('fecha').value,
-    Number(document.getElementById('r').value) || 0,
-    Number(document.getElementById('s').value) || 0,
-    Number(document.getElementById('t').value) || 0,
-    Number(document.getElementById('tf').value) || 0,
-    Number(document.getElementById('tb').value) || 0,
-    Number(document.getElementById('tc').value) || 0
-  ];
-
-  if (!datos[0] || !datos[1] || !datos[2]) { alert("Selecciona Máquina, Tipo y Equipo"); return; }
-
+  const datos = [document.getElementById('maquina').value, document.getElementById('tipo').value, document.getElementById('motor').value, document.getElementById('hora').value, document.getElementById('fecha').value, Number(document.getElementById('r').value)||0, Number(document.getElementById('s').value)||0, Number(document.getElementById('t').value)||0, Number(document.getElementById('tf').value)||0, Number(document.getElementById('tb').value)||0, Number(document.getElementById('tc').value)||0];
+  if(!datos[0] || !datos[1] || !datos[2]) { alert("Faltan datos"); return; }
   await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
-  alert("Datos guardados ✅");
-  globalData = []; loadData();
+  alert("Guardado ✅"); globalData = []; loadData();
 }
 
 window.onload = loadData;
 </script>
-
 </body>
 </html>
