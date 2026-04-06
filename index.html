@@ -199,10 +199,12 @@
         <label>T Frontal:</label>
         <input type="number" id="tf">
 
-        <div class="extra-t" style="display: contents;">
+        <div id="wrapper-tb">
             <label>T Bobina:</label>
             <input type="number" id="tb">
+        </div>
 
+        <div id="wrapper-tc">
             <label>T Caracol:</label>
             <input type="number" id="tc">
         </div>
@@ -280,14 +282,20 @@ let globalData = [];
 function gestionarVisibilidadIngreso() {
   const tipo = document.getElementById('tipo').value.toLowerCase();
   const colRST = document.getElementById('col-rst');
-  const extrasT = document.querySelectorAll('.extra-t');
+  const wrapTB = document.getElementById('wrapper-tb');
+  const wrapTC = document.getElementById('wrapper-tc');
+
+  // Reset defaults
+  colRST.style.visibility = "visible";
+  wrapTB.style.display = "contents";
+  wrapTC.style.display = "contents";
 
   if (tipo === "caja") {
     colRST.style.visibility = "hidden";
-    extrasT.forEach(el => el.style.display = "none");
-  } else {
-    colRST.style.visibility = "visible";
-    extrasT.forEach(el => el.style.display = "contents");
+    wrapTB.style.display = "none";
+    wrapTC.style.display = "none";
+  } else if (tipo === "motor") {
+    wrapTC.style.display = "none";
   }
 }
 
@@ -297,11 +305,14 @@ function gestionarVisibilidadVisualizacion() {
   const containerRST = document.getElementById('container-chartRST');
   const tituloGrafico2 = document.getElementById('titulo-grafico2');
 
+  containerRST.style.display = "block"; // Default
+
   if (tipo === "caja") {
     containerRST.style.display = "none";
     tituloGrafico2.innerText = "📊 T Frontal";
+  } else if (tipo === "motor") {
+    tituloGrafico2.innerText = "📊 T Frontal, T Bobina";
   } else {
-    containerRST.style.display = "block";
     tituloGrafico2.innerText = "📊 T Frontal, T Bobina, T Caracol";
   }
 }
@@ -328,35 +339,22 @@ function loadSelectIngreso() {
 
   selectMaq.onchange = () => {
     const maq = selectMaq.value.toLowerCase();
-
-    const tipos = globalData
-      .filter(r => r[0].toLowerCase() === maq)
-      .map(r => r[1]);
-
+    const tipos = globalData.filter(r => r[0].toLowerCase() === maq).map(r => r[1]);
     const tiposUnicos = [...new Set(tipos)];
 
     selectTipo.innerHTML = '<option value="">Seleccionar tipo</option>';
     tiposUnicos.forEach(t => {
       selectTipo.innerHTML += `<option value="${t}">${t}</option>`;
     });
-
     selectTipo.onchange();
   };
 
   selectTipo.onchange = () => {
     const maq = selectMaq.value.toLowerCase();
     const tipo = selectTipo.value.toLowerCase();
-    
-    // Ejecutar lógica de visibilidad
     gestionarVisibilidadIngreso();
 
-    const equipos = globalData
-      .filter(r =>
-        r[0].toLowerCase() === maq &&
-        r[1].toLowerCase() === tipo
-      )
-      .map(r => r[2]);
-
+    const equipos = globalData.filter(r => r[0].toLowerCase() === maq && r[1].toLowerCase() === tipo).map(r => r[2]);
     const unicos = [...new Set(equipos)];
 
     selectMot.innerHTML = '<option value="">Seleccionar equipo</option>';
@@ -380,35 +378,22 @@ function loadDropdowns() {
 
   selectMaq.onchange = () => {
     const maq = selectMaq.value.toLowerCase();
-
-    const tipos = globalData
-      .filter(r => !maq || r[0].toLowerCase() === maq)
-      .map(r => r[1]);
-
+    const tipos = globalData.filter(r => !maq || r[0].toLowerCase() === maq).map(r => r[1]);
     const tiposUnicos = [...new Set(tipos)];
 
     selectTipo.innerHTML = '<option value="">Todos</option>';
     tiposUnicos.forEach(t => {
       selectTipo.innerHTML += `<option value="${t}">${t}</option>`;
     });
-
     selectTipo.onchange();
   };
 
   selectTipo.onchange = () => {
     const maq = selectMaq.value.toLowerCase();
     const tipo = selectTipo.value.toLowerCase();
-
-    // Ejecutar lógica de visibilidad
     gestionarVisibilidadVisualizacion();
 
-    const motores = globalData
-      .filter(r =>
-        (!maq || r[0].toLowerCase() === maq) &&
-        (!tipo || r[1].toLowerCase() === tipo)
-      )
-      .map(r => r[2]);
-
+    const motores = globalData.filter(r => (!maq || r[0].toLowerCase() === maq) && (!tipo || r[1].toLowerCase() === tipo)).map(r => r[2]);
     const motoresUnicos = [...new Set(motores)];
 
     selectMot.innerHTML = '<option value="">Todos</option>';
@@ -416,7 +401,6 @@ function loadDropdowns() {
       selectMot.innerHTML += `<option value="${m}">${m}</option>`;
     });
   };
-
   selectMaq.onchange();
 }
 
@@ -429,13 +413,10 @@ function checkTrendAlert(dataset, label) {
 }
 
 async function loadData() {
-
   if (globalData.length === 0) {
     const res = await fetch(sheetURL);
     const data = await res.json();
-
     globalData = data.slice(1);
-
     loadDropdowns();
     loadSelectIngreso();
   }
@@ -448,11 +429,7 @@ async function loadData() {
     const maq = r[0].toLowerCase();
     const tipo = r[1].toLowerCase();
     const mot = r[2].toLowerCase();
-    return (
-      (maquinaFiltro === "" || maq === maquinaFiltro) &&
-      (tipoFiltro === "" || tipo === tipoFiltro) &&
-      (motorFiltro === "" || mot === motorFiltro)
-    );
+    return (maquinaFiltro === "" || maq === maquinaFiltro) && (tipoFiltro === "" || tipo === tipoFiltro) && (motorFiltro === "" || mot === motorFiltro);
   });
 
   const labels = filtrados.map(r => {
@@ -466,48 +443,36 @@ async function loadData() {
     { label: 'T', data: filtrados.map(r => r[7]), borderColor: 'green' }
   ];
 
-  // Lógica de datasets dinámicos para el Gráfico 2
-  let datasets2;
-  if(tipoFiltro === "caja") {
-    datasets2 = [{ label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange' }];
-  } else {
-    datasets2 = [
-        { label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange' },
-        { label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple' },
-        { label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown' }
-    ];
+  let datasets2 = [{ label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange' }];
+  
+  if (tipoFiltro !== "caja") {
+    datasets2.push({ label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple' });
+    if (tipoFiltro !== "motor") {
+        datasets2.push({ label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown' });
+    }
   }
 
   const ctx1 = document.getElementById('chartRST').getContext('2d');
   if (chart1) {
-    chart1.data.labels = labels;
-    chart1.data.datasets = datasets1;
-    chart1.update();
+    chart1.data.labels = labels; chart1.data.datasets = datasets1; chart1.update();
   } else {
     chart1 = new Chart(ctx1, { type: 'line', data: { labels, datasets: datasets1 } });
   }
 
-  datasets1.forEach(d => checkTrendAlert(d.data, d.label));
-
   const ctx2 = document.getElementById('chartTFTBTC').getContext('2d');
   if (chart2) {
-    chart2.data.labels = labels;
-    chart2.data.datasets = datasets2;
-    chart2.update();
+    chart2.data.labels = labels; chart2.data.datasets = datasets2; chart2.update();
   } else {
     chart2 = new Chart(ctx2, { type: 'line', data: { labels, datasets: datasets2 } });
   }
 }
 
 async function enviarDatos() {
-
   const now = new Date();
   document.getElementById('fecha').valueAsDate = now;
   document.getElementById('hora').value = now.toTimeString().slice(0,5);
-
   const tipo = document.getElementById('tipo').value.toLowerCase();
   
-  // Si es caja, enviamos 0 en los campos ocultos para no romper la estructura de la DB
   const datos = [
     document.getElementById('maquina').value,
     document.getElementById('tipo').value,
@@ -518,35 +483,21 @@ async function enviarDatos() {
     tipo === "caja" ? 0 : Number(document.getElementById('s').value),
     tipo === "caja" ? 0 : Number(document.getElementById('t').value),
     Number(document.getElementById('tf').value),
-    tipo === "caja" ? 0 : Number(document.getElementById('tb').value),
-    tipo === "caja" ? 0 : Number(document.getElementById('tc').value)
+    (tipo === "caja") ? 0 : Number(document.getElementById('tb').value),
+    (tipo === "caja" || tipo === "motor") ? 0 : Number(document.getElementById('tc').value)
   ];
 
-  if (datos.includes("") || datos.includes(null) || datos.includes(undefined)) {
-    alert("Completa todos los campos");
-    return;
+  if (datos.includes("") || datos.includes(null)) {
+    alert("Completa todos los campos"); return;
   }
 
-  await fetch(sheetURL, {
-    method: 'POST',
-    body: JSON.stringify(datos)
-  });
-
+  await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
   alert("Datos guardados ✅");
-  globalData = [];
-  loadData();
+  globalData = []; loadData();
 }
 
-window.onload = () => {
-  loadData();
-};
-
-setInterval(() => {
-  globalData = [];
-  loadData();
-}, 180000);
-
-loadData();
+window.onload = () => loadData();
+setInterval(() => { globalData = []; loadData(); }, 180000);
 </script>
 
 </body>
