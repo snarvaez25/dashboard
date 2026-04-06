@@ -173,7 +173,7 @@
     <br>
 
     <label>Equipo</label><br>
-    <select id="motor"></select>
+    <select id="motor" onchange="gestionarVisibilidadIngreso()"></select>
 
     <br>
 
@@ -196,7 +196,7 @@
       </div>
 
       <div class="col">
-        <label>T Frontal:</label>
+        <label id="label-tf">T Frontal:</label>
         <input type="number" id="tf">
 
         <div id="wrapper-tb">
@@ -241,7 +241,7 @@
 
           <div>
             <label>Equipo</label><br>
-            <select id="filtroMotor"></select>
+            <select id="filtroMotor" onchange="gestionarVisibilidadVisualizacion()"></select>
           </div>
         </div>
 
@@ -278,38 +278,45 @@ let chart1;
 let chart2;
 let globalData = [];
 
-// Función para ocultar/mostrar en pestaña Ingreso
 function gestionarVisibilidadIngreso() {
   const tipo = document.getElementById('tipo').value.toLowerCase();
+  const motor = document.getElementById('motor').value.toLowerCase();
   const colRST = document.getElementById('col-rst');
   const wrapTB = document.getElementById('wrapper-tb');
   const wrapTC = document.getElementById('wrapper-tc');
+  const labelTF = document.getElementById('label-tf');
 
-  // Reset defaults
   colRST.style.visibility = "visible";
   wrapTB.style.display = "contents";
   wrapTC.style.display = "contents";
+  labelTF.innerText = "T Frontal:";
 
-  if (tipo === "caja") {
+  if (tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio")) {
     colRST.style.visibility = "hidden";
     wrapTB.style.display = "none";
     wrapTC.style.display = "none";
+    if (tipo === "hidráulico" && motor === "reservorio") {
+      labelTF.innerText = "Nivel (%):";
+    }
   } else if (tipo === "motor") {
     wrapTC.style.display = "none";
   }
 }
 
-// Función para ocultar/mostrar en pestaña Visualización
 function gestionarVisibilidadVisualizacion() {
   const tipo = document.getElementById('filtroTipo').value.toLowerCase();
+  const motor = document.getElementById('filtroMotor').value.toLowerCase();
   const containerRST = document.getElementById('container-chartRST');
   const tituloGrafico2 = document.getElementById('titulo-grafico2');
 
-  containerRST.style.display = "block"; // Default
+  containerRST.style.display = "block";
 
   if (tipo === "caja") {
     containerRST.style.display = "none";
     tituloGrafico2.innerText = "📊 T Frontal";
+  } else if (tipo === "hidráulico" && motor === "reservorio") {
+    containerRST.style.display = "none";
+    tituloGrafico2.innerText = "📊 Nivel";
   } else if (tipo === "motor") {
     tituloGrafico2.innerText = "📊 T Frontal, T Bobina";
   } else {
@@ -320,7 +327,6 @@ function gestionarVisibilidadVisualizacion() {
 function cambiarTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
   event.target.classList.add('active');
   document.getElementById(tab).classList.add('active');
 }
@@ -331,21 +337,15 @@ function loadSelectIngreso() {
   const selectMot = document.getElementById('motor');
 
   const maquinas = [...new Set(globalData.map(r => r[0]))];
-
   selectMaq.innerHTML = '<option value="">Seleccionar máquina</option>';
-  maquinas.forEach(m => {
-    selectMaq.innerHTML += `<option value="${m}">${m}</option>`;
-  });
+  maquinas.forEach(m => { selectMaq.innerHTML += `<option value="${m}">${m}</option>`; });
 
   selectMaq.onchange = () => {
     const maq = selectMaq.value.toLowerCase();
     const tipos = globalData.filter(r => r[0].toLowerCase() === maq).map(r => r[1]);
     const tiposUnicos = [...new Set(tipos)];
-
     selectTipo.innerHTML = '<option value="">Seleccionar tipo</option>';
-    tiposUnicos.forEach(t => {
-      selectTipo.innerHTML += `<option value="${t}">${t}</option>`;
-    });
+    tiposUnicos.forEach(t => { selectTipo.innerHTML += `<option value="${t}">${t}</option>`; });
     selectTipo.onchange();
   };
 
@@ -353,14 +353,10 @@ function loadSelectIngreso() {
     const maq = selectMaq.value.toLowerCase();
     const tipo = selectTipo.value.toLowerCase();
     gestionarVisibilidadIngreso();
-
     const equipos = globalData.filter(r => r[0].toLowerCase() === maq && r[1].toLowerCase() === tipo).map(r => r[2]);
     const unicos = [...new Set(equipos)];
-
     selectMot.innerHTML = '<option value="">Seleccionar equipo</option>';
-    unicos.forEach(e => {
-      selectMot.innerHTML += `<option value="${e}">${e}</option>`;
-    });
+    unicos.forEach(e => { selectMot.innerHTML += `<option value="${e}">${e}</option>`; });
   };
 }
 
@@ -370,21 +366,15 @@ function loadDropdowns() {
   const selectMot = document.getElementById('filtroMotor');
 
   const maquinas = [...new Set(globalData.map(r => r[0]))];
-
   selectMaq.innerHTML = '<option value="">Todas</option>';
-  maquinas.forEach(m => {
-    selectMaq.innerHTML += `<option value="${m}">${m}</option>`;
-  });
+  maquinas.forEach(m => { selectMaq.innerHTML += `<option value="${m}">${m}</option>`; });
 
   selectMaq.onchange = () => {
     const maq = selectMaq.value.toLowerCase();
     const tipos = globalData.filter(r => !maq || r[0].toLowerCase() === maq).map(r => r[1]);
     const tiposUnicos = [...new Set(tipos)];
-
     selectTipo.innerHTML = '<option value="">Todos</option>';
-    tiposUnicos.forEach(t => {
-      selectTipo.innerHTML += `<option value="${t}">${t}</option>`;
-    });
+    tiposUnicos.forEach(t => { selectTipo.innerHTML += `<option value="${t}">${t}</option>`; });
     selectTipo.onchange();
   };
 
@@ -392,14 +382,10 @@ function loadDropdowns() {
     const maq = selectMaq.value.toLowerCase();
     const tipo = selectTipo.value.toLowerCase();
     gestionarVisibilidadVisualizacion();
-
     const motores = globalData.filter(r => (!maq || r[0].toLowerCase() === maq) && (!tipo || r[1].toLowerCase() === tipo)).map(r => r[2]);
     const motoresUnicos = [...new Set(motores)];
-
     selectMot.innerHTML = '<option value="">Todos</option>';
-    motoresUnicos.forEach(m => {
-      selectMot.innerHTML += `<option value="${m}">${m}</option>`;
-    });
+    motoresUnicos.forEach(m => { selectMot.innerHTML += `<option value="${m}">${m}</option>`; });
   };
   selectMaq.onchange();
 }
@@ -443,12 +429,16 @@ async function loadData() {
     { label: 'T', data: filtrados.map(r => r[7]), borderColor: 'green' }
   ];
 
-  let datasets2 = [{ label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange' }];
-  
-  if (tipoFiltro !== "caja") {
-    datasets2.push({ label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple' });
-    if (tipoFiltro !== "motor") {
+  let datasets2 = [];
+  if (tipoFiltro === "hidráulico" && motorFiltro === "reservorio") {
+    datasets2.push({ label: 'Nivel', data: filtrados.map(r => r[8]), borderColor: 'orange' });
+  } else {
+    datasets2.push({ label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange' });
+    if (tipoFiltro !== "caja") {
+      datasets2.push({ label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple' });
+      if (tipoFiltro !== "motor") {
         datasets2.push({ label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown' });
+      }
     }
   }
 
@@ -472,19 +462,22 @@ async function enviarDatos() {
   document.getElementById('fecha').valueAsDate = now;
   document.getElementById('hora').value = now.toTimeString().slice(0,5);
   const tipo = document.getElementById('tipo').value.toLowerCase();
+  const motor = document.getElementById('motor').value.toLowerCase();
   
+  const esReducido = tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio");
+
   const datos = [
     document.getElementById('maquina').value,
     document.getElementById('tipo').value,
     document.getElementById('motor').value,
     document.getElementById('hora').value,
     document.getElementById('fecha').value,
-    tipo === "caja" ? 0 : Number(document.getElementById('r').value),
-    tipo === "caja" ? 0 : Number(document.getElementById('s').value),
-    tipo === "caja" ? 0 : Number(document.getElementById('t').value),
+    esReducido ? 0 : Number(document.getElementById('r').value),
+    esReducido ? 0 : Number(document.getElementById('s').value),
+    esReducido ? 0 : Number(document.getElementById('t').value),
     Number(document.getElementById('tf').value),
-    (tipo === "caja") ? 0 : Number(document.getElementById('tb').value),
-    (tipo === "caja" || tipo === "motor") ? 0 : Number(document.getElementById('tc').value)
+    esReducido ? 0 : Number(document.getElementById('tb').value),
+    (esReducido || tipo === "motor") ? 0 : Number(document.getElementById('tc').value)
   ];
 
   if (datos.includes("") || datos.includes(null)) {
