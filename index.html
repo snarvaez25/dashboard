@@ -22,12 +22,28 @@
       border-radius: 10px 10px 0 0;
       background: #dfe6ed;
       transition: 0.3s;
+      position: relative; /* Necesario para el badge */
     }
 
     .tab.active {
       background: white;
       font-weight: bold;
       box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Estilo estilo WhatsApp Badge */
+    .badge {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background-color: #ff4d4d;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: bold;
+      display: none; /* Se muestra solo si hay alertas */
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
     .tab-content {
@@ -111,7 +127,10 @@
 <div class="tabs">
   <div class="tab active" onclick="cambiarTab('ingreso')">➕ Ingreso</div>
   <div class="tab" onclick="cambiarTab('visualizacion')">📊 Visualización</div>
-  <div class="tab" onclick="cambiarTab('resumen'); actualizarResumen();">📋 Resumen</div>
+  <div class="tab" onclick="cambiarTab('resumen'); actualizarResumen();">
+    📋 Resumen
+    <span id="badge-alertas" class="badge">0</span>
+  </div>
 </div>
 
 <div id="ingreso" class="tab-content active">
@@ -196,6 +215,34 @@ function evaluarAlertaPersistente(serie) {
   return enAlerta;
 }
 
+// Función para actualizar el número en el icono (Badge)
+function actualizarBadge() {
+  const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
+  let contadorTotal = 0;
+
+  ids.forEach(id => {
+    const [m, t, e] = id.split('|');
+    const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
+    const vars = [{n:'R', i:5}, {n:'S', i:6}, {n:'T', i:7}, {n:'T Frontal', i:8}, {n:'T Bobina', i:9}, {n:'T Caracol', i:10}];
+    let tieneAlerta = false;
+    
+    vars.forEach(v => {
+      const serie = filtrados.map(r => Number(r[v.i])).filter(val => val !== 0);
+      if (evaluarAlertaPersistente(serie)) tieneAlerta = true;
+    });
+
+    if (tieneAlerta) contadorTotal++;
+  });
+
+  const badge = document.getElementById('badge-alertas');
+  if (contadorTotal > 0) {
+    badge.innerText = contadorTotal;
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
 function actualizarResumen() {
   const contenedor = document.getElementById('lista-alertas');
   contenedor.innerHTML = "";
@@ -219,6 +266,7 @@ function actualizarResumen() {
     }
   });
   if (!huboAlertas) contenedor.innerHTML = '<p class="no-alerts">✅ Operación normal en todos los equipos.</p>';
+  actualizarBadge();
 }
 
 function gestionarVisibilidadIngreso() {
@@ -275,6 +323,7 @@ async function loadData() {
 
   actualizarChart('chartRST', labels, ds1, chart1, (c) => chart1 = c);
   actualizarChart('chartTFTBTC', labels, ds2, chart2, (c) => chart2 = c);
+  actualizarBadge(); // Actualiza el número al cargar datos
 }
 
 function actualizarChart(id, labels, datasets, obj, save) {
