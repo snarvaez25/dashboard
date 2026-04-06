@@ -168,7 +168,7 @@
     <br>
 
     <label>Tipo</label><br>
-    <select id="tipo"></select>
+    <select id="tipo" onchange="gestionarVisibilidadIngreso()"></select>
 
     <br>
 
@@ -184,7 +184,7 @@
 
     <div class="form-grid-2col">
 
-      <div class="col">
+      <div class="col" id="col-rst">
         <label>R:</label>
         <input type="number" id="r">
 
@@ -199,11 +199,13 @@
         <label>T Frontal:</label>
         <input type="number" id="tf">
 
-        <label>T Bobina:</label>
-        <input type="number" id="tb">
+        <div class="extra-t" style="display: contents;">
+            <label>T Bobina:</label>
+            <input type="number" id="tb">
 
-        <label>T Caracol:</label>
-        <input type="number" id="tc">
+            <label>T Caracol:</label>
+            <input type="number" id="tc">
+        </div>
       </div>
 
     </div>
@@ -232,7 +234,7 @@
 
           <div>
             <label>Tipo</label><br>
-            <select id="filtroTipo"></select>
+            <select id="filtroTipo" onchange="gestionarVisibilidadVisualizacion()"></select>
           </div>
 
           <div>
@@ -254,13 +256,13 @@
   <hr>
 
   <div class="charts-container">
-    <div class="chart-box">
+    <div class="chart-box" id="container-chartRST">
       <h2>📊 R, S, T</h2>
       <canvas id="chartRST"></canvas>
     </div>
 
     <div class="chart-box">
-      <h2>📊 T Frontal, T Bobina, T Caracol</h2>
+      <h2 id="titulo-grafico2">📊 T Frontal, T Bobina, T Caracol</h2>
       <canvas id="chartTFTBTC"></canvas>
     </div>
   </div>
@@ -273,6 +275,36 @@ const sheetURL = "https://script.google.com/macros/s/AKfycbzw9qjfWV0otwkTh7iFImb
 let chart1;
 let chart2;
 let globalData = [];
+
+// Función para ocultar/mostrar en pestaña Ingreso
+function gestionarVisibilidadIngreso() {
+  const tipo = document.getElementById('tipo').value.toLowerCase();
+  const colRST = document.getElementById('col-rst');
+  const extrasT = document.querySelectorAll('.extra-t');
+
+  if (tipo === "caja") {
+    colRST.style.visibility = "hidden";
+    extrasT.forEach(el => el.style.display = "none");
+  } else {
+    colRST.style.visibility = "visible";
+    extrasT.forEach(el => el.style.display = "contents");
+  }
+}
+
+// Función para ocultar/mostrar en pestaña Visualización
+function gestionarVisibilidadVisualizacion() {
+  const tipo = document.getElementById('filtroTipo').value.toLowerCase();
+  const containerRST = document.getElementById('container-chartRST');
+  const tituloGrafico2 = document.getElementById('titulo-grafico2');
+
+  if (tipo === "caja") {
+    containerRST.style.display = "none";
+    tituloGrafico2.innerText = "📊 T Frontal";
+  } else {
+    containerRST.style.display = "block";
+    tituloGrafico2.innerText = "📊 T Frontal, T Bobina, T Caracol";
+  }
+}
 
 function cambiarTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -314,6 +346,9 @@ function loadSelectIngreso() {
   selectTipo.onchange = () => {
     const maq = selectMaq.value.toLowerCase();
     const tipo = selectTipo.value.toLowerCase();
+    
+    // Ejecutar lógica de visibilidad
+    gestionarVisibilidadIngreso();
 
     const equipos = globalData
       .filter(r =>
@@ -363,6 +398,9 @@ function loadDropdowns() {
   selectTipo.onchange = () => {
     const maq = selectMaq.value.toLowerCase();
     const tipo = selectTipo.value.toLowerCase();
+
+    // Ejecutar lógica de visibilidad
+    gestionarVisibilidadVisualizacion();
 
     const motores = globalData
       .filter(r =>
@@ -428,11 +466,17 @@ async function loadData() {
     { label: 'T', data: filtrados.map(r => r[7]), borderColor: 'green' }
   ];
 
-  const datasets2 = [
-    { label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange' },
-    { label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple' },
-    { label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown' }
-  ];
+  // Lógica de datasets dinámicos para el Gráfico 2
+  let datasets2;
+  if(tipoFiltro === "caja") {
+    datasets2 = [{ label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange' }];
+  } else {
+    datasets2 = [
+        { label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: 'orange' },
+        { label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple' },
+        { label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown' }
+    ];
+  }
 
   const ctx1 = document.getElementById('chartRST').getContext('2d');
   if (chart1) {
@@ -461,18 +505,21 @@ async function enviarDatos() {
   document.getElementById('fecha').valueAsDate = now;
   document.getElementById('hora').value = now.toTimeString().slice(0,5);
 
+  const tipo = document.getElementById('tipo').value.toLowerCase();
+  
+  // Si es caja, enviamos 0 en los campos ocultos para no romper la estructura de la DB
   const datos = [
     document.getElementById('maquina').value,
     document.getElementById('tipo').value,
     document.getElementById('motor').value,
     document.getElementById('hora').value,
     document.getElementById('fecha').value,
-    Number(document.getElementById('r').value),
-    Number(document.getElementById('s').value),
-    Number(document.getElementById('t').value),
+    tipo === "caja" ? 0 : Number(document.getElementById('r').value),
+    tipo === "caja" ? 0 : Number(document.getElementById('s').value),
+    tipo === "caja" ? 0 : Number(document.getElementById('t').value),
     Number(document.getElementById('tf').value),
-    Number(document.getElementById('tb').value),
-    Number(document.getElementById('tc').value)
+    tipo === "caja" ? 0 : Number(document.getElementById('tb').value),
+    tipo === "caja" ? 0 : Number(document.getElementById('tc').value)
   ];
 
   if (datos.includes("") || datos.includes(null) || datos.includes(undefined)) {
