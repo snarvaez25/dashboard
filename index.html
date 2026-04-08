@@ -22,7 +22,7 @@
       border-radius: 10px 10px 0 0;
       background: #dfe6ed;
       transition: 0.3s;
-      position: relative; /* Necesario para el badge */
+      position: relative;
     }
 
     .tab.active {
@@ -31,7 +31,6 @@
       box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
     }
 
-    /* Estilo estilo WhatsApp Badge */
     .badge {
       position: absolute;
       top: -5px;
@@ -42,7 +41,7 @@
       padding: 2px 6px;
       font-size: 11px;
       font-weight: bold;
-      display: none; /* Se muestra solo si hay alertas */
+      display: none;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
 
@@ -55,8 +54,6 @@
     }
 
     .tab-content.active { display: block; }
-
-    .top-container { display: flex; gap: 40px; flex-wrap: wrap; }
 
     .box {
       flex: 1;
@@ -153,8 +150,8 @@
       </div>
       <div class="col">
         <label id="label-tf">T Frontal:</label><input type="number" id="tf">
-        <div id="wrapper-tb"><label>T Bobina:</label><input type="number" id="tb"></div>
-        <div id="wrapper-tc"><label>T Caracol:</label><input type="number" id="tc"></div>
+        <div id="wrapper-tb"><label id="label-tb">T Bobina:</label><input type="number" id="tb"></div>
+        <div id="wrapper-tc"><label id="label-tc">T Caracol:</label><input type="number" id="tc"></div>
       </div>
     </div><br>
     <button onclick="enviarDatos()">Guardar</button>
@@ -194,7 +191,7 @@
 const sheetURL = "https://script.google.com/macros/s/AKfycbzw9qjfWV0otwkTh7iFImbuZ9Sq1pkoHl5EphWyBvTcfOLa1KLsSkbShDFljewvLQ2B/exec";
 let chart1, chart2, globalData = [];
 
-const normalizar = (t) => t ? t.toString().trim().toLowerCase() : "";
+const normalizar = (t) => t ? t.toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
 
 function cambiarTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -203,7 +200,6 @@ function cambiarTab(tab) {
   document.getElementById(tab).classList.add('active');
 }
 
-// LÓGICA DE ALERTAS: Persiste hasta que baje
 function evaluarAlertaPersistente(serie) {
   if (serie.length < 3) return false;
   let enAlerta = false;
@@ -215,51 +211,42 @@ function evaluarAlertaPersistente(serie) {
   return enAlerta;
 }
 
-// Función para actualizar el número en el icono (Badge)
 function actualizarBadge() {
   const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
   let contadorTotal = 0;
-
   ids.forEach(id => {
     const [m, t, e] = id.split('|');
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
     const vars = [{n:'R', i:5}, {n:'S', i:6}, {n:'T', i:7}, {n:'T Frontal', i:8}, {n:'T Bobina', i:9}, {n:'T Caracol', i:10}];
     let tieneAlerta = false;
-    
     vars.forEach(v => {
       const serie = filtrados.map(r => Number(r[v.i])).filter(val => val !== 0);
       if (evaluarAlertaPersistente(serie)) tieneAlerta = true;
     });
-
     if (tieneAlerta) contadorTotal++;
   });
-
   const badge = document.getElementById('badge-alertas');
-  if (contadorTotal > 0) {
-    badge.innerText = contadorTotal;
-    badge.style.display = 'block';
-  } else {
-    badge.style.display = 'none';
+  if (badge) {
+    if (contadorTotal > 0) { badge.innerText = contadorTotal; badge.style.display = 'block'; }
+    else { badge.style.display = 'none'; }
   }
 }
 
 function actualizarResumen() {
   const contenedor = document.getElementById('lista-alertas');
+  if (!contenedor) return;
   contenedor.innerHTML = "";
   const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
   let huboAlertas = false;
-
   ids.forEach(id => {
     const [m, t, e] = id.split('|');
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
     const vars = [{n:'R', i:5}, {n:'S', i:6}, {n:'T', i:7}, {n:'T Frontal', i:8}, {n:'T Bobina', i:9}, {n:'T Caracol', i:10}];
     let activas = [];
-    
     vars.forEach(v => {
       const serie = filtrados.map(r => Number(r[v.i])).filter(val => val !== 0);
       if (evaluarAlertaPersistente(serie)) activas.push(v.n);
     });
-
     if (activas.length > 0) {
       huboAlertas = true;
       contenedor.innerHTML += `<div class="alert-card"><h3>⚠️ ${m} - ${e}</h3><p>Tendencia de alza persistente en: <b>${activas.join(', ')}</b></p></div>`;
@@ -272,12 +259,40 @@ function actualizarResumen() {
 function gestionarVisibilidadIngreso() {
   const tipo = normalizar(document.getElementById('tipo').value);
   const motor = normalizar(document.getElementById('motor').value);
-  const colRST = document.getElementById('col-rst'), wB = document.getElementById('wrapper-tb'), wC = document.getElementById('wrapper-tc'), lF = document.getElementById('label-tf');
+  const colRST = document.getElementById('col-rst'), 
+        wB = document.getElementById('wrapper-tb'), 
+        wC = document.getElementById('wrapper-tc'), 
+        lF = document.getElementById('label-tf'),
+        lB = document.getElementById('label-tb'),
+        inputTF = document.getElementById('tf');
 
-  colRST.style.visibility = (tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio")) ? "hidden" : "visible";
-  wB.style.display = (tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio")) ? "none" : "contents";
-  wC.style.display = (tipo === "caja" || tipo === "motor" || (tipo === "hidráulico" && motor === "reservorio")) ? "none" : "contents";
-  lF.innerText = (tipo === "hidráulico" && motor === "reservorio") ? "Nivel (%):" : "T Frontal:";
+  const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || tipo === "caja");
+  const esIntercambiador = (motor === "intercambiador");
+
+  // Ocultar R,S,T
+  colRST.style.display = (esEspecial || esIntercambiador || (tipo === "hidraulico" && motor === "reservorio")) ? "none" : "grid";
+  
+  if (esIntercambiador) {
+    wB.style.display = "contents";
+    wC.style.display = "none";
+    lF.innerText = "INGRESO (°C):";
+    lB.innerText = "RETORNO (°C):";
+    inputTF.removeAttribute("min");
+    inputTF.removeAttribute("max");
+  } else if (esEspecial) {
+    wB.style.display = "none";
+    wC.style.display = "none";
+    lF.innerText = "NIVEL (%):";
+    inputTF.min = "0";
+    inputTF.max = "100";
+  } else {
+    wB.style.display = "contents";
+    wC.style.display = (tipo === "motor") ? "none" : "contents";
+    lF.innerText = (tipo === "hidraulico" && motor === "reservorio") ? "Nivel (%):" : "T Frontal:";
+    lB.innerText = "T Bobina:";
+    inputTF.removeAttribute("min");
+    inputTF.removeAttribute("max");
+  }
 }
 
 function gestionarVisibilidadVisualizacion() {
@@ -285,19 +300,38 @@ function gestionarVisibilidadVisualizacion() {
   const motor = normalizar(document.getElementById('filtroMotor').value);
   const cRST = document.getElementById('container-chartRST'), tit2 = document.getElementById('titulo-grafico2');
 
-  cRST.style.display = (tipo === "caja" || (tipo === "hidráulico" && motor === "reservorio")) ? "none" : "block";
-  tit2.innerText = (tipo === "hidráulico" && motor === "reservorio") ? "📊 Nivel" : (tipo === "caja") ? "📊 T Frontal" : "📊 Temperaturas";
+  const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || tipo === "caja");
+  const esIntercambiador = (motor === "intercambiador");
+
+  cRST.style.display = (esEspecial || esIntercambiador || (tipo === "hidraulico" && motor === "reservorio")) ? "none" : "block";
+  
+  if (esIntercambiador) {
+    tit2.innerText = "📊 Temperaturas (°C)";
+  } else if (esEspecial) {
+    tit2.innerText = "📊 NIVEL (%)";
+  } else {
+    tit2.innerText = (tipo === "hidraulico" && motor === "reservorio") ? "📊 Nivel (%)" : "📊 Temperaturas";
+  }
 }
 
 async function loadData() {
   if (globalData.length === 0) {
-    const res = await fetch(sheetURL);
-    globalData = (await res.json()).slice(1);
-    loadDropdowns();
-    loadSelectIngreso();
+    try {
+      const res = await fetch(sheetURL);
+      globalData = (await res.json()).slice(1);
+      loadDropdowns();
+      loadSelectIngreso();
+    } catch (e) { console.error("Error cargando datos", e); }
   }
 
-  const mF = document.getElementById('filtroMaquina').value, tF = document.getElementById('filtroTipo').value, eF = document.getElementById('filtroMotor').value;
+  const mF = document.getElementById('filtroMaquina').value;
+  const tF = document.getElementById('filtroTipo').value;
+  const eF = document.getElementById('filtroMotor').value;
+  
+  const tipoNorm = normalizar(tF);
+  const motorNorm = normalizar(eF);
+  const esIntercambiador = (motorNorm === "intercambiador");
+
   const filtrados = globalData.filter(r => (mF===""||r[0]===mF) && (tF===""||r[1]===tF) && (eF===""||r[2]===eF));
   const labels = filtrados.map(r => new Date(r[4]).toISOString().split('T')[0]);
 
@@ -307,33 +341,44 @@ async function loadData() {
     { label: 'T', data: filtrados.map(r => r[7]), borderColor: 'green', fill:false }
   ];
 
-  // Líneas de Consumo Maq66 - Blower - Vacio Robot
-  if (normalizar(mF).includes("66") && normalizar(tF).includes("blower") && normalizar(eF).includes("vacio")) {
-    ds1.push(
-      { label: 'NOMINAL (5)', data: Array(labels.length).fill(5), borderColor: 'rgba(255,0,0,0.6)', borderDash: [10,5], pointRadius:0, borderWidth:3, fill:false },
-      { label: 'IDEAL (4)', data: Array(labels.length).fill(4), borderColor: 'rgba(0,0,255,0.6)', borderDash: [5,5], pointRadius:0, borderWidth:2, fill:false }
-    );
-  }
+  const esEspecial = (tipoNorm === "hidraulico" || tipoNorm === "lubricacion" || tipoNorm === "caja");
 
-  const ds2 = [{ label: 'T Frontal / Nivel', data: filtrados.map(r => r[8]), borderColor: 'orange', fill:false }];
-  if (normalizar(tF) !== "caja") {
-    ds2.push({ label: 'T Bobina', data: filtrados.map(r => r[9]), borderColor: 'purple', fill:false });
-    if (normalizar(tF) !== "motor") ds2.push({ label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown', fill:false });
+  let labelTF = esEspecial ? "NIVEL" : "T Frontal";
+  if (esIntercambiador) labelTF = "INGRESO (°C)";
+
+  let labelTB = "T Bobina";
+  if (esIntercambiador) labelTB = "RETORNO (°C)";
+
+  const ds2 = [{ 
+    label: labelTF, 
+    data: filtrados.map(r => r[8]), 
+    borderColor: 'orange', 
+    fill:false 
+  }];
+  
+  if (esIntercambiador) {
+    ds2.push({ label: labelTB, data: filtrados.map(r => r[9]), borderColor: 'purple', fill:false });
+  } else if (!esEspecial) {
+    ds2.push({ label: labelTB, data: filtrados.map(r => r[9]), borderColor: 'purple', fill:false });
+    if (tipoNorm !== "motor") ds2.push({ label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown', fill:false });
   }
 
   actualizarChart('chartRST', labels, ds1, chart1, (c) => chart1 = c);
   actualizarChart('chartTFTBTC', labels, ds2, chart2, (c) => chart2 = c);
-  actualizarBadge(); // Actualiza el número al cargar datos
+  actualizarBadge();
 }
 
 function actualizarChart(id, labels, datasets, obj, save) {
-  const ctx = document.getElementById(id).getContext('2d');
+  const el = document.getElementById(id);
+  if (!el) return;
+  const ctx = el.getContext('2d');
   if (obj) { obj.data.labels = labels; obj.data.datasets = datasets; obj.update(); }
   else { save(new Chart(ctx, { type: 'line', data: { labels, datasets } })); }
 }
 
 function loadSelectIngreso() {
   const sM = document.getElementById('maquina');
+  if (!sM) return;
   sM.innerHTML = '<option value="">Seleccionar máquina</option>' + [...new Set(globalData.map(r => r[0]))].map(m => `<option value="${m}">${m}</option>`).join('');
   sM.onchange = () => {
     const tipos = [...new Set(globalData.filter(r => r[0] === sM.value).map(r => r[1]))];
@@ -348,6 +393,7 @@ function loadSelectIngreso() {
 
 function loadDropdowns() {
   const sM = document.getElementById('filtroMaquina');
+  if (!sM) return;
   sM.innerHTML = '<option value="">Todas</option>' + [...new Set(globalData.map(r => r[0]))].map(m => `<option value="${m}">${m}</option>`).join('');
   sM.onchange = () => {
     const tipos = [...new Set(globalData.filter(r => !sM.value || r[0] === sM.value).map(r => r[1]))];
@@ -356,17 +402,45 @@ function loadDropdowns() {
   document.getElementById('filtroTipo').onchange = () => {
     const motores = [...new Set(globalData.filter(r => (!sM.value || r[0] === sM.value) && (!document.getElementById('filtroTipo').value || r[1] === document.getElementById('filtroTipo').value)).map(r => r[2]))];
     document.getElementById('filtroMotor').innerHTML = '<option value="">Todos</option>' + motores.map(e => `<option value="${e}">${e}</option>`).join('');
+    gestionarVisibilidadVisualizacion();
   };
 }
 
 async function enviarDatos() {
+  const tipo = normalizar(document.getElementById('tipo').value);
+  const motor = normalizar(document.getElementById('motor').value);
+  const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || tipo === "caja");
+  const nivelVal = Number(document.getElementById('tf').value);
+
+  if (esEspecial && motor !== "intercambiador" && (nivelVal < 0 || nivelVal > 100)) {
+    alert("El nivel debe estar entre 0% y 100%");
+    return;
+  }
+
   const now = new Date();
   document.getElementById('fecha').valueAsDate = now;
   document.getElementById('hora').value = now.toTimeString().slice(0,5);
-  const datos = [document.getElementById('maquina').value, document.getElementById('tipo').value, document.getElementById('motor').value, document.getElementById('hora').value, document.getElementById('fecha').value, Number(document.getElementById('r').value)||0, Number(document.getElementById('s').value)||0, Number(document.getElementById('t').value)||0, Number(document.getElementById('tf').value)||0, Number(document.getElementById('tb').value)||0, Number(document.getElementById('tc').value)||0];
+  
+  const datos = [
+    document.getElementById('maquina').value, 
+    document.getElementById('tipo').value, 
+    document.getElementById('motor').value, 
+    document.getElementById('hora').value, 
+    document.getElementById('fecha').value, 
+    Number(document.getElementById('r').value)||0, 
+    Number(document.getElementById('s').value)||0, 
+    Number(document.getElementById('t').value)||0, 
+    nivelVal||0, 
+    Number(document.getElementById('tb').value)||0, 
+    Number(document.getElementById('tc').value)||0
+  ];
+
   if(!datos[0] || !datos[1] || !datos[2]) { alert("Faltan datos"); return; }
+  
   await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
-  alert("Guardado ✅"); globalData = []; loadData();
+  alert("Guardado ✅"); 
+  globalData = []; 
+  loadData();
 }
 
 window.onload = loadData;
