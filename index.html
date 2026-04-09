@@ -85,6 +85,11 @@
     }
 
     button:hover { background: #43a047; }
+    
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
 
     .charts-container { display: flex; gap: 20px; flex-wrap: wrap; }
 
@@ -154,7 +159,7 @@
         <div id="wrapper-tc"><label id="label-tc">T Caracol:</label><input type="number" id="tc"></div>
       </div>
     </div><br>
-    <button onclick="enviarDatos()">Guardar</button>
+    <button id="btnGuardar" onclick="enviarDatos()">Guardar</button>
   </div>
 </div>
 
@@ -269,7 +274,6 @@ function gestionarVisibilidadIngreso() {
   const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || tipo === "caja");
   const esIntercambiador = (motor === "intercambiador");
 
-  // Ocultar R,S,T
   colRST.style.display = (esEspecial || esIntercambiador || (tipo === "hidraulico" && motor === "reservorio")) ? "none" : "grid";
   
   if (esIntercambiador) {
@@ -407,6 +411,8 @@ function loadDropdowns() {
 }
 
 async function enviarDatos() {
+  const btn = document.getElementById('btnGuardar');
+  
   const tipo = normalizar(document.getElementById('tipo').value);
   const motor = normalizar(document.getElementById('motor').value);
   const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || tipo === "caja");
@@ -437,10 +443,23 @@ async function enviarDatos() {
 
   if(!datos[0] || !datos[1] || !datos[2]) { alert("Faltan datos"); return; }
   
-  await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
-  alert("Guardado ✅"); 
-  globalData = []; 
-  loadData();
+  // DESACTIVAR BOTÓN PARA EVITAR DOBLE ENVÍO
+  btn.disabled = true;
+  btn.innerText = "Guardando...";
+
+  try {
+    await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
+    
+    alert("Guardado ✅"); 
+    globalData = []; 
+    loadData();
+  } catch (e) {
+    alert("Error al guardar. Intente nuevamente.");
+  } finally {
+    // REACTIVAR BOTÓN
+    btn.disabled = false;
+    btn.innerText = "Guardar";
+  }
 }
 
 window.onload = loadData;
