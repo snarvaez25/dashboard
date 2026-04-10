@@ -1,184 +1,258 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-  <title>Envases - Sistema de Control</title>
+  <meta charset="UTF-8">
+  <title>Sistema de Control Envases</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
+    /* Estilo Base SCADA Dark */
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f5f7fa;
-      margin: 20px;
-      color: #333;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #1a1c1e;
+      margin: 0;
+      padding: 20px;
+      color: #e0e0e0;
     }
 
-    h2 { margin-bottom: 10px; }
+    h2 { 
+      color: #00ffcc; 
+      font-size: 1.1rem;
+      border-left: 4px solid #00ffcc;
+      padding-left: 10px;
+      margin-top: 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
 
-    .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+    /* Tabs Estilo HMI */
+    .tabs { 
+      display: flex; 
+      gap: 5px; 
+      margin-bottom: 0; 
+      border-bottom: 2px solid #333;
+    }
 
     .tab {
-      padding: 10px 20px;
+      padding: 12px 25px;
       cursor: pointer;
-      border-radius: 10px 10px 0 0;
-      background: #dfe6ed;
-      transition: 0.3s;
-      position: relative;
+      background: #2d2d2d;
+      border: 1px solid #444;
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
+      transition: all 0.2s;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      font-size: 0.8rem;
     }
 
+    .tab:hover { background: #3d3d3d; color: #fff; }
+
     .tab.active {
-      background: white;
-      font-weight: bold;
-      box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+      background: #333;
+      color: #00ffcc;
+      border-top: 3px solid #00ffcc;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
     }
 
     .badge {
       position: absolute;
-      top: -5px;
-      right: -5px;
-      background-color: #ff4d4d;
+      top: 2px;
+      right: 2px;
+      background-color: #ff3333;
       color: white;
-      border-radius: 50%;
-      padding: 2px 6px;
-      font-size: 11px;
-      font-weight: bold;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 10px;
       display: none;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      box-shadow: 0 0 8px rgba(255,51,51,0.5);
     }
 
     .tab-content {
       display: none;
-      background: white;
-      padding: 20px;
-      border-radius: 0 10px 10px 10px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      background: #25282a;
+      padding: 25px;
+      border: 1px solid #333;
+      border-top: none;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
 
     .tab-content.active { display: block; }
 
     .box {
-      flex: 1;
-      min-width: 300px;
-      background: #ffffff;
+      background: #2d3033;
       padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border: 1px solid #3d4144;
+      border-radius: 4px;
     }
 
-    select, input[type="time"], input[type="date"], input[type="number"] {
+    label {
+      font-size: 0.75rem;
+      color: #aaa;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      display: block;
+    }
+
+    select, input {
+      background: #1a1c1e;
+      border: 1px solid #444;
+      color: #00ffcc;
       padding: 8px;
-      margin-top: 5px;
-      margin-bottom: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
+      border-radius: 3px;
+      margin-bottom: 15px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
-    #hora, #fecha { display: none; }
+    select:focus, input:focus {
+      outline: none;
+      border-color: #00ffcc;
+      box-shadow: 0 0 5px rgba(0,255,204,0.3);
+    }
 
     button {
-      padding: 10px 20px;
-      border: none;
-      background: #4CAF50;
+      padding: 12px 24px;
+      border: 1px solid #008f7a;
+      background: linear-gradient(to bottom, #00b395, #007a66);
       color: white;
-      border-radius: 8px;
+      border-radius: 3px;
       cursor: pointer;
-      transition: 0.3s;
+      font-weight: bold;
+      text-transform: uppercase;
+      transition: 0.2s;
     }
 
-    button:hover { background: #43a047; }
-    
+    button:hover { 
+      background: linear-gradient(to bottom, #00d1ae, #008f7a);
+      box-shadow: 0 0 10px rgba(0,255,204,0.4);
+    }
+
     button:disabled {
-      background: #ccc;
+      background: #444;
+      border-color: #555;
       cursor: not-allowed;
     }
 
-    .charts-container { display: flex; gap: 20px; flex-wrap: wrap; }
+    .charts-container { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
 
     .chart-box {
       flex: 1;
-      min-width: 300px;
-      background: #fff;
+      min-width: 45%;
+      background: #1e2124;
       padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border: 1px solid #333;
+      border-radius: 4px;
     }
 
-    .form-grid-2col { display: flex; gap: 40px; }
+    .form-grid-2col { 
+      display: grid; 
+      grid-template-columns: 1fr 1fr; 
+      gap: 30px; 
+    }
 
     .col {
       display: grid;
-      grid-template-columns: 120px 1fr;
-      gap: 10px;
+      grid-template-columns: 110px 1fr;
+      gap: 5px;
       align-items: center;
     }
 
+    /* Alertas con Estilo Industrial */
     .alert-card {
-      background: #fff3f3;
-      border-left: 5px solid #ff4d4d;
+      background: linear-gradient(90deg, #3a1c1c 0%, #25282a 100%);
+      border: 1px solid #ff3333;
       padding: 15px;
-      margin-bottom: 15px;
-      border-radius: 8px;
+      margin-bottom: 10px;
+      border-left: 6px solid #ff3333;
+      border-radius: 4px;
     }
 
-    .alert-card h3 { margin: 0 0 5px 0; color: #d32f2f; font-size: 16px; }
-    .no-alerts { color: #4CAF50; font-weight: bold; text-align: center; padding: 20px; }
+    .alert-card h3 { margin: 0 0 5px 0; color: #ff6666; font-size: 0.9rem; letter-spacing: 1px;}
+    .alert-card p { margin: 0; font-size: 0.85rem; color: #ddd; }
+    .no-alerts { color: #00ffcc; text-align: center; padding: 40px; border: 1px dashed #333; background: rgba(0,255,204,0.02); }
+
+    #hora, #fecha { display: none; }
   </style>
 </head>
 
 <body>
 
 <div class="tabs">
-  <div class="tab active" onclick="cambiarTab('ingreso')">➕ Ingreso</div>
-  <div class="tab" onclick="cambiarTab('visualizacion')">📊 Visualización</div>
-  <div class="tab" onclick="cambiarTab('resumen'); actualizarResumen();">
-    📋 Resumen
+  <div class="tab active" onclick="cambiarTab('ingreso')">Terminal de Entrada</div>
+  <div class="tab" onclick="cambiarTab('visualizacion')">Monitor de Tendencias</div>
+  <div class="tab" onclick="cambiarTab('resumen'); actualizarResumen();" style="position:relative">
+    Registro de Alarmas
     <span id="badge-alertas" class="badge">0</span>
   </div>
 </div>
 
 <div id="ingreso" class="tab-content active">
   <div class="box">
-    <h2>➕ Ingresar datos</h2>
-    <label>Máquina</label><br>
-    <select id="maquina"></select><br>
-    <label>Tipo</label><br>
-    <select id="tipo" onchange="gestionarVisibilidadIngreso()"></select><br>
-    <label>Equipo</label><br>
-    <select id="motor" onchange="gestionarVisibilidadIngreso()"></select><br>
+    <h2>Registro de Parámetros de Campo</h2>
     
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+      <div>
+        <label>Unidad/Máquina</label>
+        <select id="maquina" onchange="gestionarVisibilidadIngreso()"></select>
+      </div>
+      <div>
+        <label>Categoría</label>
+        <select id="tipo" onchange="gestionarVisibilidadIngreso()"></select>
+      </div>
+      <div>
+        <label>Subsistema</label>
+        <select id="motor" onchange="gestionarVisibilidadIngreso()"></select>
+      </div>
+    </div>
+
     <input type="time" id="hora"><input type="date" id="fecha">
 
     <div class="form-grid-2col">
       <div class="col" id="col-rst">
-        <label>R:</label><input type="number" id="r">
-        <label>S:</label><input type="number" id="s">
-        <label>T:</label><input type="number" id="t">
+        <label>Amp Fase R:</label><input type="number" id="r" step="0.1">
+        <label>Amp Fase S:</label><input type="number" id="s" step="0.1">
+        <div id="wrapper-t" style="display: contents;">
+          <label>Amp Fase T:</label><input type="number" id="t" step="0.1">
+        </div>
       </div>
       <div class="col">
-        <label id="label-tf">T Frontal:</label><input type="number" id="tf">
-        <div id="wrapper-tb"><label id="label-tb">T Bobina:</label><input type="number" id="tb"></div>
-        <div id="wrapper-tc"><label id="label-tc">T Caracol:</label><input type="number" id="tc"></div>
+        <label id="label-tf">Temp F:</label><input type="number" id="tf" step="0.1">
+        <div id="wrapper-tb" style="display: contents;">
+          <label id="label-tb">Temp B:</label><input type="number" id="tb" step="0.1">
+        </div>
+        <div id="wrapper-tc" style="display: contents;">
+          <label id="label-tc">Temp C:</label><input type="number" id="tc" step="0.1">
+        </div>
       </div>
     </div><br>
-    <button id="btnGuardar" onclick="enviarDatos()">Guardar</button>
+    
+    <div style="text-align: right;">
+      <button id="btnGuardar" onclick="enviarDatos()">Ejecutar Carga de Datos</button>
+    </div>
   </div>
 </div>
 
 <div id="visualizacion" class="tab-content">
   <div class="box">
-    <h2>🔍 Filtrar datos</h2>
-    <select id="filtroMaquina"></select>
-    <select id="filtroTipo" onchange="gestionarVisibilidadVisualizacion()"></select>
-    <select id="filtroMotor" onchange="gestionarVisibilidadVisualizacion()"></select>
-    <button onclick="loadData()">Aplicar filtro</button>
+    <h2>Filtros de Análisis de Telemetría</h2>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end;">
+      <div><label>Máquina</label><select id="filtroMaquina" onchange="gestionarVisibilidadVisualizacion()"></select></div>
+      <div><label>Tipo</label><select id="filtroTipo" onchange="gestionarVisibilidadVisualizacion()"></select></div>
+      <div><label>Equipo</label><select id="filtroMotor" onchange="gestionarVisibilidadVisualizacion()"></select></div>
+      <button onclick="loadData()">Actualizar Gráficos</button>
+    </div>
   </div>
-  <hr>
+
   <div class="charts-container">
     <div class="chart-box" id="container-chartRST">
-      <h2>📊 Amperaje (R, S, T)</h2>
+      <h2>Tendencia de Amperaje</h2>
       <canvas id="chartRST"></canvas>
     </div>
     <div class="chart-box">
-      <h2 id="titulo-grafico2">📊 Temperaturas / Nivel</h2>
+      <h2 id="titulo-grafico2">Tendencia Térmica</h2>
       <canvas id="chartTFTBTC"></canvas>
     </div>
   </div>
@@ -186,13 +260,16 @@
 
 <div id="resumen" class="tab-content">
   <div class="box">
-    <h2>📋 Resumen de Alertas</h2>
-    <p>Las alertas permanecen activas hasta que el equipo registre un descenso en el valor.</p>
+    <h2>Historial de Alarmas Predictivas</h2>
     <div id="lista-alertas"></div>
   </div>
 </div>
 
 <script>
+// Configuración de Chart.js
+Chart.defaults.color = '#888';
+Chart.defaults.borderColor = '#333';
+
 const sheetURL = "https://script.google.com/macros/s/AKfycbzw9qjfWV0otwkTh7iFImbuZ9Sq1pkoHl5EphWyBvTcfOLa1KLsSkbShDFljewvLQ2B/exec";
 let chart1, chart2, globalData = [];
 
@@ -201,7 +278,8 @@ const normalizar = (t) => t ? t.toString().trim().toLowerCase().normalize("NFD")
 function cambiarTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  document.querySelector(`[onclick*="${tab}"]`).classList.add('active');
+  const targetTab = document.querySelector(`[onclick*="${tab}"]`);
+  if(targetTab) targetTab.classList.add('active');
   document.getElementById(tab).classList.add('active');
 }
 
@@ -222,7 +300,12 @@ function actualizarBadge() {
   ids.forEach(id => {
     const [m, t, e] = id.split('|');
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
-    const vars = [{n:'R', i:5}, {n:'S', i:6}, {n:'T', i:7}, {n:'T Frontal', i:8}, {n:'T Bobina', i:9}, {n:'T Caracol', i:10}];
+    
+    // Si la máquina es BD04, no evaluamos la Fase T (índice 7)
+    const vars = m === "BD04" 
+        ? [{n:'R', i:5}, {n:'S', i:6}, {n:'TF', i:8}, {n:'TB', i:9}, {n:'TC', i:10}]
+        : [{n:'R', i:5}, {n:'S', i:6}, {n:'T', i:7}, {n:'TF', i:8}, {n:'TB', i:9}, {n:'TC', i:10}];
+
     let tieneAlerta = false;
     vars.forEach(v => {
       const serie = filtrados.map(r => Number(r[v.i])).filter(val => val !== 0);
@@ -243,25 +326,49 @@ function actualizarResumen() {
   contenedor.innerHTML = "";
   const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
   let huboAlertas = false;
+
   ids.forEach(id => {
     const [m, t, e] = id.split('|');
+    const tNorm = normalizar(t);
+    const eNorm = normalizar(e);
+    
+    const esCaja = (tNorm === "caja");
+    const esEspecial = (tNorm === "hidraulico" || tNorm === "lubricacion" || esCaja);
+    const esIntercambiador = (eNorm === "intercambiador");
+    
+    let labelF = esCaja ? "TEMP CAJA" : ((esEspecial || (tNorm === "hidraulico" && eNorm === "reservorio")) ? "NIVEL" : (esIntercambiador ? "INGRESO" : "T-FRON"));
+    let labelB = esIntercambiador ? "RETORNO" : "T-BOB";
+    let labelC = "T-CARA";
+
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
-    const vars = [{n:'R', i:5}, {n:'S', i:6}, {n:'T', i:7}, {n:'T Frontal', i:8}, {n:'T Bobina', i:9}, {n:'T Caracol', i:10}];
+    
+    // Omitir T si es BD04
+    let vars = [{n:'Amperaje R', i:5}, {n:'Amperaje S', i:6}];
+    if (m !== "BD04") vars.push({n:'Amperaje T', i:7});
+    vars.push({n:labelF, i:8}, {n:labelB, i:9}, {n:labelC, i:10});
+
     let activas = [];
     vars.forEach(v => {
       const serie = filtrados.map(r => Number(r[v.i])).filter(val => val !== 0);
       if (evaluarAlertaPersistente(serie)) activas.push(v.n);
     });
+
     if (activas.length > 0) {
       huboAlertas = true;
-      contenedor.innerHTML += `<div class="alert-card"><h3>⚠️ ${m} - ${e}</h3><p>Tendencia de alza persistente en: <b>${activas.join(', ')}</b></p></div>`;
+      contenedor.innerHTML += `
+        <div class="alert-card">
+          <h3>MÁQUINA: ${m} | TIPO: ${t} | EQUIPO: ${e}</h3>
+          <p>⚠️ ALERTA: Tendencia de alza persistente detectada en: <b>${activas.join(', ')}</b></p>
+        </div>`;
     }
   });
-  if (!huboAlertas) contenedor.innerHTML = '<p class="no-alerts">✅ Operación normal en todos los equipos.</p>';
+
+  if (!huboAlertas) contenedor.innerHTML = '<div class="no-alerts">SISTEMAS OPERANDO DENTRO DE PARÁMETROS NORMALES</div>';
   actualizarBadge();
 }
 
 function gestionarVisibilidadIngreso() {
+  const maquina = document.getElementById('maquina').value;
   const tipo = normalizar(document.getElementById('tipo').value);
   const motor = normalizar(document.getElementById('motor').value);
   const colRST = document.getElementById('col-rst'), 
@@ -269,53 +376,50 @@ function gestionarVisibilidadIngreso() {
         wC = document.getElementById('wrapper-tc'), 
         lF = document.getElementById('label-tf'),
         lB = document.getElementById('label-tb'),
-        inputTF = document.getElementById('tf');
+        lC = document.getElementById('label-tc'),
+        wT = document.getElementById('wrapper-t');
 
-  const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || tipo === "caja");
+  const esCaja = (tipo === "caja");
+  const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || esCaja);
   const esIntercambiador = (motor === "intercambiador");
 
   colRST.style.display = (esEspecial || esIntercambiador || (tipo === "hidraulico" && motor === "reservorio")) ? "none" : "grid";
   
+  // Ocultar Fase T si es BD04
+  wT.style.display = (maquina === "BD04") ? "none" : "contents";
+
   if (esIntercambiador) {
-    wB.style.display = "contents";
-    wC.style.display = "none";
-    lF.innerText = "INGRESO (°C):";
-    lB.innerText = "RETORNO (°C):";
-    inputTF.removeAttribute("min");
-    inputTF.removeAttribute("max");
+    wB.style.display = "contents"; wC.style.display = "none";
+    lF.innerText = "Ingreso (°C):"; lB.innerText = "Retorno (°C):";
   } else if (esEspecial) {
-    wB.style.display = "none";
-    wC.style.display = "none";
-    lF.innerText = "NIVEL (%):";
-    inputTF.min = "0";
-    inputTF.max = "100";
+    wB.style.display = "none"; wC.style.display = "none";
+    lF.innerText = esCaja ? "Temp Caja (°C):" : "Nivel (%):";
   } else {
     wB.style.display = "contents";
     wC.style.display = (tipo === "motor") ? "none" : "contents";
     lF.innerText = (tipo === "hidraulico" && motor === "reservorio") ? "Nivel (%):" : "T Frontal:";
     lB.innerText = "T Bobina:";
-    inputTF.removeAttribute("min");
-    inputTF.removeAttribute("max");
+    
+    // MODIFICACIÓN SOLICITADA: Cambiar Temp C por T CARACOL si es BLOWER
+    lC.innerText = (tipo === "blower") ? "T Caracol:" : "Temp C:";
   }
 }
 
 function gestionarVisibilidadVisualizacion() {
+  const maquina = document.getElementById('filtroMaquina').value;
   const tipo = normalizar(document.getElementById('filtroTipo').value);
   const motor = normalizar(document.getElementById('filtroMotor').value);
   const cRST = document.getElementById('container-chartRST'), tit2 = document.getElementById('titulo-grafico2');
-
-  const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || tipo === "caja");
-  const esIntercambiador = (motor === "intercambiador");
-
-  cRST.style.display = (esEspecial || esIntercambiador || (tipo === "hidraulico" && motor === "reservorio")) ? "none" : "block";
   
-  if (esIntercambiador) {
-    tit2.innerText = "📊 Temperaturas (°C)";
-  } else if (esEspecial) {
-    tit2.innerText = "📊 NIVEL (%)";
-  } else {
-    tit2.innerText = (tipo === "hidraulico" && motor === "reservorio") ? "📊 Nivel (%)" : "📊 Temperaturas";
-  }
+  const esCaja = (tipo === "caja");
+  const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || esCaja);
+  const esIntercambiador = (motor === "intercambiador");
+  
+  cRST.style.display = (esEspecial || esIntercambiador || (tipo === "hidraulico" && motor === "reservorio")) ? "none" : "block";
+  if (esIntercambiador) tit2.innerText = "Monitor Térmico Intercambiador";
+  else if (esCaja) tit2.innerText = "Monitor Temperatura Caja";
+  else if (esEspecial) tit2.innerText = "Monitor de Niveles";
+  else tit2.innerText = "Monitor Térmico";
 }
 
 async function loadData() {
@@ -331,40 +435,38 @@ async function loadData() {
   const mF = document.getElementById('filtroMaquina').value;
   const tF = document.getElementById('filtroTipo').value;
   const eF = document.getElementById('filtroMotor').value;
-  
   const tipoNorm = normalizar(tF);
   const motorNorm = normalizar(eF);
-  const esIntercambiador = (motorNorm === "intercambiador");
 
   const filtrados = globalData.filter(r => (mF===""||r[0]===mF) && (tF===""||r[1]===tF) && (eF===""||r[2]===eF));
-  const labels = filtrados.map(r => new Date(r[4]).toISOString().split('T')[0]);
+  const labels = filtrados.map(r => r[4].split('T')[0]);
 
-  const ds1 = [
-    { label: 'R', data: filtrados.map(r => r[5]), borderColor: 'red', fill:false },
-    { label: 'S', data: filtrados.map(r => r[6]), borderColor: 'blue', fill:false },
-    { label: 'T', data: filtrados.map(r => r[7]), borderColor: 'green', fill:false }
+  // Series de amperaje. Filtramos la T si la máquina seleccionada es BD04
+  let ds1 = [
+    { label: 'R', data: filtrados.map(r => r[5]), borderColor: '#ff3333', tension: 0.2 },
+    { label: 'S', data: filtrados.map(r => r[6]), borderColor: '#3366ff', tension: 0.2 }
   ];
+  if (mF !== "BD04") {
+    ds1.push({ label: 'T', data: filtrados.map(r => r[7]), borderColor: '#33cc33', tension: 0.2 });
+  }
 
-  const esEspecial = (tipoNorm === "hidraulico" || tipoNorm === "lubricacion" || tipoNorm === "caja");
+  const esCaja = (tipoNorm === "caja");
+  const esEspecial = (tipoNorm === "hidraulico" || tipoNorm === "lubricacion" || esCaja);
+  const esIntercambiador = (motorNorm === "intercambiador");
 
-  let labelTF = esEspecial ? "NIVEL" : "T Frontal";
-  if (esIntercambiador) labelTF = "INGRESO (°C)";
+  let labelPrincipal = esCaja ? 'TEMP CAJA' : ((esEspecial || (tipoNorm==="hidraulico" && motorNorm==="reservorio")) ? 'NIVEL' : (esIntercambiador ? 'INGRESO' : 'T-FRON'));
 
-  let labelTB = "T Bobina";
-  if (esIntercambiador) labelTB = "RETORNO (°C)";
-
-  const ds2 = [{ 
-    label: labelTF, 
+  let ds2 = [{ 
+    label: labelPrincipal, 
     data: filtrados.map(r => r[8]), 
-    borderColor: 'orange', 
-    fill:false 
+    borderColor: '#ffcc00', tension: 0.2 
   }];
   
-  if (esIntercambiador) {
-    ds2.push({ label: labelTB, data: filtrados.map(r => r[9]), borderColor: 'purple', fill:false });
-  } else if (!esEspecial) {
-    ds2.push({ label: labelTB, data: filtrados.map(r => r[9]), borderColor: 'purple', fill:false });
-    if (tipoNorm !== "motor") ds2.push({ label: 'T Caracol', data: filtrados.map(r => r[10]), borderColor: 'brown', fill:false });
+  if (esIntercambiador || (!esEspecial && motorNorm !== "reservorio")) {
+    ds2.push({ label: esIntercambiador ? 'RETORNO' : 'T-BOB', data: filtrados.map(r => r[9]), borderColor: '#ff00ff', tension: 0.2 });
+    if (!esIntercambiador && tipoNorm !== "motor") {
+      ds2.push({ label: 'T-CARA', data: filtrados.map(r => r[10]), borderColor: '#00ffff', tension: 0.2 });
+    }
   }
 
   actualizarChart('chartRST', labels, ds1, chart1, (c) => chart1 = c);
@@ -376,21 +478,38 @@ function actualizarChart(id, labels, datasets, obj, save) {
   const el = document.getElementById(id);
   if (!el) return;
   const ctx = el.getContext('2d');
-  if (obj) { obj.data.labels = labels; obj.data.datasets = datasets; obj.update(); }
-  else { save(new Chart(ctx, { type: 'line', data: { labels, datasets } })); }
+  if (obj) { 
+    obj.data.labels = labels; 
+    obj.data.datasets = datasets; 
+    obj.update(); 
+  } else { 
+    save(new Chart(ctx, { 
+      type: 'line', 
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        plugins: { legend: { labels: { font: { size: 10 } } } },
+        scales: { 
+          x: { grid: { color: '#333' } },
+          y: { grid: { color: '#333' } }
+        }
+      }
+    })); 
+  }
 }
 
 function loadSelectIngreso() {
   const sM = document.getElementById('maquina');
   if (!sM) return;
-  sM.innerHTML = '<option value="">Seleccionar máquina</option>' + [...new Set(globalData.map(r => r[0]))].map(m => `<option value="${m}">${m}</option>`).join('');
+  sM.innerHTML = '<option value="">- SELECCIONE -</option>' + [...new Set(globalData.map(r => r[0]))].map(m => `<option value="${m}">${m}</option>`).join('');
   sM.onchange = () => {
     const tipos = [...new Set(globalData.filter(r => r[0] === sM.value).map(r => r[1]))];
-    document.getElementById('tipo').innerHTML = '<option value="">Tipo</option>' + tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+    document.getElementById('tipo').innerHTML = '<option value="">- TIPO -</option>' + tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+    gestionarVisibilidadIngreso();
   };
   document.getElementById('tipo').onchange = () => {
     const equipos = [...new Set(globalData.filter(r => r[0] === sM.value && r[1] === document.getElementById('tipo').value).map(r => r[2]))];
-    document.getElementById('motor').innerHTML = '<option value="">Equipo</option>' + equipos.map(e => `<option value="${e}">${e}</option>`).join('');
+    document.getElementById('motor').innerHTML = '<option value="">- EQUIPO -</option>' + equipos.map(e => `<option value="${e}">${e}</option>`).join('');
     gestionarVisibilidadIngreso();
   };
 }
@@ -398,67 +517,49 @@ function loadSelectIngreso() {
 function loadDropdowns() {
   const sM = document.getElementById('filtroMaquina');
   if (!sM) return;
-  sM.innerHTML = '<option value="">Todas</option>' + [...new Set(globalData.map(r => r[0]))].map(m => `<option value="${m}">${m}</option>`).join('');
+  sM.innerHTML = '<option value="">TODAS</option>' + [...new Set(globalData.map(r => r[0]))].map(m => `<option value="${m}">${m}</option>`).join('');
   sM.onchange = () => {
     const tipos = [...new Set(globalData.filter(r => !sM.value || r[0] === sM.value).map(r => r[1]))];
-    document.getElementById('filtroTipo').innerHTML = '<option value="">Todos</option>' + tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+    document.getElementById('filtroTipo').innerHTML = '<option value="">TODOS</option>' + tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+    gestionarVisibilidadVisualizacion();
   };
   document.getElementById('filtroTipo').onchange = () => {
     const motores = [...new Set(globalData.filter(r => (!sM.value || r[0] === sM.value) && (!document.getElementById('filtroTipo').value || r[1] === document.getElementById('filtroTipo').value)).map(r => r[2]))];
-    document.getElementById('filtroMotor').innerHTML = '<option value="">Todos</option>' + motores.map(e => `<option value="${e}">${e}</option>`).join('');
+    document.getElementById('filtroMotor').innerHTML = '<option value="">TODOS</option>' + motores.map(e => `<option value="${e}">${e}</option>`).join('');
     gestionarVisibilidadVisualizacion();
   };
 }
 
 async function enviarDatos() {
   const btn = document.getElementById('btnGuardar');
-  
-  const tipo = normalizar(document.getElementById('tipo').value);
-  const motor = normalizar(document.getElementById('motor').value);
-  const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || tipo === "caja");
-  const nivelVal = Number(document.getElementById('tf').value);
-
-  if (esEspecial && motor !== "intercambiador" && (nivelVal < 0 || nivelVal > 100)) {
-    alert("El nivel debe estar entre 0% y 100%");
-    return;
-  }
-
   const now = new Date();
   document.getElementById('fecha').valueAsDate = now;
   document.getElementById('hora').value = now.toTimeString().slice(0,5);
   
   const datos = [
-    document.getElementById('maquina').value, 
-    document.getElementById('tipo').value, 
-    document.getElementById('motor').value, 
-    document.getElementById('hora').value, 
+    document.getElementById('maquina').value, document.getElementById('tipo').value, 
+    document.getElementById('motor').value, document.getElementById('hora').value, 
     document.getElementById('fecha').value, 
-    Number(document.getElementById('r').value)||0, 
-    Number(document.getElementById('s').value)||0, 
-    Number(document.getElementById('t').value)||0, 
-    nivelVal||0, 
-    Number(document.getElementById('tb').value)||0, 
-    Number(document.getElementById('tc').value)||0
+    Number(document.getElementById('r').value)||0, Number(document.getElementById('s').value)||0, 
+    Number(document.getElementById('t').value)||0, Number(document.getElementById('tf').value)||0, 
+    Number(document.getElementById('tb').value)||0, Number(document.getElementById('tc').value)||0
   ];
 
-  if(!datos[0] || !datos[1] || !datos[2]) { alert("Faltan datos"); return; }
+  if(!datos[0] || !datos[1] || !datos[2]) { alert("ERROR: Parámetros de identificación incompletos"); return; }
   
-  // DESACTIVAR BOTÓN PARA EVITAR DOBLE ENVÍO
   btn.disabled = true;
-  btn.innerText = "Guardando...";
+  btn.innerText = "TRANSMITIENDO...";
 
   try {
     await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
-    
-    alert("Guardado ✅"); 
+    alert("TRANSMISIÓN EXITOSA ✅"); 
     globalData = []; 
     loadData();
   } catch (e) {
-    alert("Error al guardar. Intente nuevamente.");
+    alert("FALLO EN LA CONEXIÓN ❌");
   } finally {
-    // REACTIVAR BOTÓN
     btn.disabled = false;
-    btn.innerText = "Guardar";
+    btn.innerText = "Ejecutar Carga de Datos";
   }
 }
 
