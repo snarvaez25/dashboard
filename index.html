@@ -288,8 +288,23 @@ Chart.defaults.borderColor = '#333';
 const sheetURL = "https://script.google.com/macros/s/AKfycbzw9qjfWV0otwkTh7iFImbuZ9Sq1pkoHl5EphWyBvTcfOLa1KLsSkbShDFljewvLQ2B/exec";
 let chart1, chart2, globalData = [];
 let alarmasSilenciadas = JSON.parse(localStorage.getItem('alarmasSilenciadas')) || [];
+let alarmasNotificadas = []; // Para no repetir notificaciones de la misma sesión
 
 const normalizar = (t) => t ? t.toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
+
+// Solicitar permiso de notificaciones al cargar
+if ("Notification" in window) {
+  Notification.requestPermission();
+}
+
+function dispararNotificacion(titulo, cuerpo) {
+  if (Notification.permission === "granted") {
+    new Notification(titulo, {
+      body: cuerpo,
+      icon: "https://cdn-icons-png.flaticon.com/512/564/564619.png"
+    });
+  }
+}
 
 function cambiarTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -404,6 +419,12 @@ function actualizarResumen() {
           </div>
           <button class="btn-eliminar" onclick="eliminarAlarma('${id}')">REVISADO / ELIMINAR</button>
         </div>`;
+
+      // Lógica de Notificación al Celular
+      if (!alarmasNotificadas.includes(id)) {
+        dispararNotificacion(`¡ALERTA PREDICTIVA!`, `Máquina ${m} (${e}) presenta alza en: ${activas.join(', ')}`);
+        alarmasNotificadas.push(id);
+      }
     }
   });
 
@@ -511,6 +532,7 @@ async function loadData() {
   actualizarChart('chartRST', labels, ds1, chart1, (c) => chart1 = c);
   actualizarChart('chartTFTBTC', labels, ds2, chart2, (c) => chart2 = c);
   actualizarBadge();
+  actualizarResumen(); // Actualizamos el resumen para chequear alertas
 }
 
 function actualizarChart(id, labels, datasets, obj, save) {
