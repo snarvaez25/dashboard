@@ -130,6 +130,18 @@
       box-shadow: 0 0 10px rgba(0,255,204,0.4);
     }
 
+    button.btn-eliminar {
+      padding: 5px 10px;
+      font-size: 0.7rem;
+      background: #444;
+      border: 1px solid #666;
+      margin-top: 10px;
+    }
+
+    button.btn-eliminar:hover {
+      background: #666;
+    }
+
     button:disabled {
       background: #444;
       border-color: #555;
@@ -168,6 +180,9 @@
       margin-bottom: 10px;
       border-left: 6px solid #ff3333;
       border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
 
     .alert-card h3 { margin: 0 0 5px 0; color: #ff6666; font-size: 0.9rem; letter-spacing: 1px;}
@@ -272,6 +287,7 @@ Chart.defaults.borderColor = '#333';
 
 const sheetURL = "https://script.google.com/macros/s/AKfycbzw9qjfWV0otwkTh7iFImbuZ9Sq1pkoHl5EphWyBvTcfOLa1KLsSkbShDFljewvLQ2B/exec";
 let chart1, chart2, globalData = [];
+let alarmasSilenciadas = JSON.parse(localStorage.getItem('alarmasSilenciadas')) || [];
 
 const normalizar = (t) => t ? t.toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
 
@@ -285,23 +301,47 @@ function cambiarTab(tab) {
 
 function evaluarAlertaPersistente(serie) {
   if (serie.length < 3) return false;
-  let enAlerta = false;
-  for (let i = 2; i < serie.length; i++) {
-    const prev = serie[i-1], act = serie[i], anteprev = serie[i-2];
-    if (anteprev < prev && prev < act) enAlerta = true;
-    else if (enAlerta && act < prev) enAlerta = false;
+  
+  let estadoAlerta = false;
+  let subidasSeguidas = 0;
+  let bajadasSeguidas = 0;
+
+  for (let i = 1; i < serie.length; i++) {
+    if (serie[i] > serie[i-1]) {
+      subidasSeguidas++;
+      bajadasSeguidas = 0;
+      if (subidasSeguidas >= 2) estadoAlerta = true;
+    } 
+    else if (serie[i] < serie[i-1]) {
+      bajadasSeguidas++;
+      subidasSeguidas = 0;
+      if (bajadasSeguidas >= 2) estadoAlerta = false;
+    }
+    else {
+      subidasSeguidas = 0;
+      bajadasSeguidas = 0;
+    }
   }
-  return enAlerta;
+  return estadoAlerta;
+}
+
+function eliminarAlarma(id) {
+    if(!alarmasSilenciadas.includes(id)) {
+        alarmasSilenciadas.push(id);
+        localStorage.setItem('alarmasSilenciadas', JSON.stringify(alarmasSilenciadas));
+        actualizarResumen();
+    }
 }
 
 function actualizarBadge() {
   const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
   let contadorTotal = 0;
   ids.forEach(id => {
+    if (alarmasSilenciadas.includes(id)) return;
+
     const [m, t, e] = id.split('|');
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
     
-    // Si la máquina es BD04, no evaluamos la Fase T (índice 7)
     const vars = m === "BD04" 
         ? [{n:'R', i:5}, {n:'S', i:6}, {n:'TF', i:8}, {n:'TB', i:9}, {n:'TC', i:10}]
         : [{n:'R', i:5}, {n:'S', i:6}, {n:'T', i:7}, {n:'TF', i:8}, {n:'TB', i:9}, {n:'TC', i:10}];
@@ -325,9 +365,11 @@ function actualizarResumen() {
   if (!contenedor) return;
   contenedor.innerHTML = "";
   const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
-  let huboAlertas = false;
+  let huboAlertasVisibles = false;
 
   ids.forEach(id => {
+    if (alarmasSilenciadas.includes(id)) return;
+
     const [m, t, e] = id.split('|');
     const tNorm = normalizar(t);
     const eNorm = normalizar(e);
@@ -342,7 +384,6 @@ function actualizarResumen() {
 
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
     
-    // Omitir T si es BD04
     let vars = [{n:'Amperaje R', i:5}, {n:'Amperaje S', i:6}];
     if (m !== "BD04") vars.push({n:'Amperaje T', i:7});
     vars.push({n:labelF, i:8}, {n:labelB, i:9}, {n:labelC, i:10});
@@ -354,16 +395,19 @@ function actualizarResumen() {
     });
 
     if (activas.length > 0) {
-      huboAlertas = true;
+      huboAlertasVisibles = true;
       contenedor.innerHTML += `
         <div class="alert-card">
-          <h3>MÁQUINA: ${m} | TIPO: ${t} | EQUIPO: ${e}</h3>
-          <p>⚠️ ALERTA: Tendencia de alza persistente detectada en: <b>${activas.join(', ')}</b></p>
+          <div>
+            <h3>MÁQUINA: ${m} | TIPO: ${t} | EQUIPO: ${e}</h3>
+            <p>⚠️ ALERTA: Tendencia de alza detectada en: <b>${activas.join(', ')}</b></p>
+          </div>
+          <button class="btn-eliminar" onclick="eliminarAlarma('${id}')">REVISADO / ELIMINAR</button>
         </div>`;
     }
   });
 
-  if (!huboAlertas) contenedor.innerHTML = '<div class="no-alerts">SISTEMAS OPERANDO DENTRO DE PARÁMETROS NORMALES</div>';
+  if (!huboAlertasVisibles) contenedor.innerHTML = '<div class="no-alerts">SISTEMAS OPERANDO DENTRO DE PARÁMETROS NORMALES O ALERTAS REVISADAS</div>';
   actualizarBadge();
 }
 
@@ -384,8 +428,6 @@ function gestionarVisibilidadIngreso() {
   const esIntercambiador = (motor === "intercambiador");
 
   colRST.style.display = (esEspecial || esIntercambiador || (tipo === "hidraulico" && motor === "reservorio")) ? "none" : "grid";
-  
-  // Ocultar Fase T si es BD04
   wT.style.display = (maquina === "BD04") ? "none" : "contents";
 
   if (esIntercambiador) {
@@ -399,8 +441,6 @@ function gestionarVisibilidadIngreso() {
     wC.style.display = (tipo === "motor") ? "none" : "contents";
     lF.innerText = (tipo === "hidraulico" && motor === "reservorio") ? "Nivel (%):" : "T Frontal:";
     lB.innerText = "T Bobina:";
-    
-    // MODIFICACIÓN SOLICITADA: Cambiar Temp C por T CARACOL si es BLOWER
     lC.innerText = (tipo === "blower") ? "T Caracol:" : "Temp C:";
   }
 }
@@ -441,7 +481,6 @@ async function loadData() {
   const filtrados = globalData.filter(r => (mF===""||r[0]===mF) && (tF===""||r[1]===tF) && (eF===""||r[2]===eF));
   const labels = filtrados.map(r => r[4].split('T')[0]);
 
-  // Series de amperaje. Filtramos la T si la máquina seleccionada es BD04
   let ds1 = [
     { label: 'R', data: filtrados.map(r => r[5]), borderColor: '#ff3333', tension: 0.2 },
     { label: 'S', data: filtrados.map(r => r[6]), borderColor: '#3366ff', tension: 0.2 }
@@ -505,6 +544,7 @@ function loadSelectIngreso() {
   sM.onchange = () => {
     const tipos = [...new Set(globalData.filter(r => r[0] === sM.value).map(r => r[1]))];
     document.getElementById('tipo').innerHTML = '<option value="">- TIPO -</option>' + tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+    document.getElementById('motor').innerHTML = '<option value="">- EQUIPO -</option>';
     gestionarVisibilidadIngreso();
   };
   document.getElementById('tipo').onchange = () => {
@@ -553,6 +593,18 @@ async function enviarDatos() {
   try {
     await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
     alert("TRANSMISIÓN EXITOSA ✅"); 
+    
+    // Limpieza de campos de ingreso
+    document.getElementById('r').value = "";
+    document.getElementById('s').value = "";
+    document.getElementById('t').value = "";
+    document.getElementById('tf').value = "";
+    document.getElementById('tb').value = "";
+    document.getElementById('tc').value = "";
+    document.getElementById('maquina').value = "";
+    document.getElementById('tipo').innerHTML = '<option value="">- TIPO -</option>';
+    document.getElementById('motor').innerHTML = '<option value="">- EQUIPO -</option>';
+    
     globalData = []; 
     loadData();
   } catch (e) {
