@@ -227,10 +227,10 @@
 
     <div class="form-grid-2col">
       <div class="col" id="col-rst">
-        <label>Amp Fase R:</label><input type="number" id="r" step="0.1">
-        <label>Amp Fase S:</label><input type="number" id="s" step="0.1">
+        <label id="label-r">Amp Fase R:</label><input type="number" id="r" step="0.1">
+        <label id="label-s">Amp Fase S:</label><input type="number" id="s" step="0.1">
         <div id="wrapper-t" style="display: contents;">
-          <label>Amp Fase T:</label><input type="number" id="t" step="0.1">
+          <label id="label-t">Amp Fase T:</label><input type="number" id="t" step="0.1">
         </div>
       </div>
       <div class="col">
@@ -263,7 +263,7 @@
 
   <div class="charts-container">
     <div class="chart-box" id="container-chartRST">
-      <h2>Tendencia de Amperaje</h2>
+      <h2 id="titulo-grafico1">Tendencia de Amperaje</h2>
       <canvas id="chartRST"></canvas>
     </div>
     <div class="chart-box">
@@ -390,18 +390,23 @@ function actualizarResumen() {
     const eNorm = normalizar(e);
     
     const esCaja = (tNorm === "caja");
+    const esServo = (tNorm === "servo");
     const esEspecial = (tNorm === "hidraulico" || tNorm === "lubricacion" || esCaja);
     const esIntercambiador = (eNorm === "intercambiador");
     
-    let labelF = esCaja ? "TEMP CAJA" : ((esEspecial || (tNorm === "hidraulico" && eNorm === "reservorio")) ? "NIVEL" : (esIntercambiador ? "INGRESO" : "T-FRON"));
-    let labelB = esIntercambiador ? "RETORNO" : "T-BOB";
+    let labelR = esServo ? "RPM" : "Amperaje R";
+    let labelS = esServo ? "CARGA (A)" : "Amperaje S";
+    let labelT = esServo ? "TORQUE" : "Amperaje T";
+    let labelF = esServo ? "T MOTOR" : (esCaja ? "TEMP CAJA" : ((esEspecial || (tNorm === "hidraulico" && eNorm === "reservorio")) ? "NIVEL" : (esIntercambiador ? "INGRESO" : "T-FRON")));
+    let labelB = esServo ? "T DRIVE" : (esIntercambiador ? "RETORNO" : "T-BOB");
     let labelC = "T-CARA";
 
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
     
-    let vars = [{n:'Amperaje R', i:5}, {n:'Amperaje S', i:6}];
-    if (m !== "BD04") vars.push({n:'Amperaje T', i:7});
-    vars.push({n:labelF, i:8}, {n:labelB, i:9}, {n:labelC, i:10});
+    let vars = [{n:labelR, i:5}, {n:labelS, i:6}];
+    if (m !== "BD04" || esServo) vars.push({n:labelT, i:7});
+    vars.push({n:labelF, i:8}, {n:labelB, i:9});
+    if(!esServo) vars.push({n:labelC, i:10});
 
     let activas = [];
     vars.forEach(v => {
@@ -420,7 +425,6 @@ function actualizarResumen() {
           <button class="btn-eliminar" onclick="eliminarAlarma('${id}')">REVISADO / ELIMINAR</button>
         </div>`;
 
-      // Lógica de Notificación al Celular
       if (!alarmasNotificadas.includes(id)) {
         dispararNotificacion(`¡ALERTA PREDICTIVA!`, `Máquina ${m} (${e}) presenta alza en: ${activas.join(', ')}`);
         alarmasNotificadas.push(id);
@@ -439,25 +443,37 @@ function gestionarVisibilidadIngreso() {
   const colRST = document.getElementById('col-rst'), 
         wB = document.getElementById('wrapper-tb'), 
         wC = document.getElementById('wrapper-tc'), 
+        lR = document.getElementById('label-r'),
+        lS = document.getElementById('label-s'),
+        lT = document.getElementById('label-t'),
         lF = document.getElementById('label-tf'),
         lB = document.getElementById('label-tb'),
         lC = document.getElementById('label-tc'),
         wT = document.getElementById('wrapper-t');
 
   const esCaja = (tipo === "caja");
+  const esServo = (tipo === "servo");
   const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || esCaja);
   const esIntercambiador = (motor === "intercambiador");
 
   colRST.style.display = (esEspecial || esIntercambiador || (tipo === "hidraulico" && motor === "reservorio")) ? "none" : "grid";
-  wT.style.display = (maquina === "BD04") ? "none" : "contents";
+  if(esServo) colRST.style.display = "grid"; 
 
-  if (esIntercambiador) {
+  wT.style.display = (maquina === "BD04" && !esServo) ? "none" : "contents";
+
+  if (esServo) {
+    lR.innerText = "RPM:"; lS.innerText = "Carga (A):"; lT.innerText = "Torque (Nm):";
+    lF.innerText = "T Motor (°C):"; lB.innerText = "T Drive (°C):";
+    wB.style.display = "contents"; wC.style.display = "none";
+  } else if (esIntercambiador) {
     wB.style.display = "contents"; wC.style.display = "none";
     lF.innerText = "Ingreso (°C):"; lB.innerText = "Retorno (°C):";
+    lR.innerText = "Amp Fase R:"; lS.innerText = "Amp Fase S:";
   } else if (esEspecial) {
     wB.style.display = "none"; wC.style.display = "none";
     lF.innerText = esCaja ? "Temp Caja (°C):" : "Nivel (%):";
   } else {
+    lR.innerText = "Amp Fase R:"; lS.innerText = "Amp Fase S:"; lT.innerText = "Amp Fase T:";
     wB.style.display = "contents";
     wC.style.display = (tipo === "motor") ? "none" : "contents";
     lF.innerText = (tipo === "hidraulico" && motor === "reservorio") ? "Nivel (%):" : "T Frontal:";
@@ -470,17 +486,23 @@ function gestionarVisibilidadVisualizacion() {
   const maquina = document.getElementById('filtroMaquina').value;
   const tipo = normalizar(document.getElementById('filtroTipo').value);
   const motor = normalizar(document.getElementById('filtroMotor').value);
-  const cRST = document.getElementById('container-chartRST'), tit2 = document.getElementById('titulo-grafico2');
+  const cRST = document.getElementById('container-chartRST'), 
+        tit1 = document.getElementById('titulo-grafico1'),
+        tit2 = document.getElementById('titulo-grafico2');
   
   const esCaja = (tipo === "caja");
+  const esServo = (tipo === "servo");
   const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || esCaja);
   const esIntercambiador = (motor === "intercambiador");
   
   cRST.style.display = (esEspecial || esIntercambiador || (tipo === "hidraulico" && motor === "reservorio")) ? "none" : "block";
-  if (esIntercambiador) tit2.innerText = "Monitor Térmico Intercambiador";
+  if(esServo) cRST.style.display = "block";
+
+  if (esServo) { tit1.innerText = "Monitor Dinámico Servo"; tit2.innerText = "Monitor Térmico Servo"; }
+  else if (esIntercambiador) tit2.innerText = "Monitor Térmico Intercambiador";
   else if (esCaja) tit2.innerText = "Monitor Temperatura Caja";
   else if (esEspecial) tit2.innerText = "Monitor de Niveles";
-  else tit2.innerText = "Monitor Térmico";
+  else { tit1.innerText = "Tendencia de Amperaje"; tit2.innerText = "Monitor Térmico"; }
 }
 
 async function loadData() {
@@ -502,19 +524,27 @@ async function loadData() {
   const filtrados = globalData.filter(r => (mF===""||r[0]===mF) && (tF===""||r[1]===tF) && (eF===""||r[2]===eF));
   const labels = filtrados.map(r => r[4].split('T')[0]);
 
-  let ds1 = [
-    { label: 'R', data: filtrados.map(r => r[5]), borderColor: '#ff3333', tension: 0.2 },
-    { label: 'S', data: filtrados.map(r => r[6]), borderColor: '#3366ff', tension: 0.2 }
-  ];
-  if (mF !== "BD04") {
-    ds1.push({ label: 'T', data: filtrados.map(r => r[7]), borderColor: '#33cc33', tension: 0.2 });
+  const esServo = (tipoNorm === "servo");
+
+  let ds1 = [];
+  if (esServo) {
+    // Para SERVO: Solo RPM y TORQUE en el primer gráfico
+    ds1.push({ label: 'RPM', data: filtrados.map(r => r[5]), borderColor: '#ff3333', tension: 0.2 });
+    ds1.push({ label: 'TORQUE', data: filtrados.map(r => r[7]), borderColor: '#33cc33', tension: 0.2 });
+  } else {
+    // Comportamiento normal para otros tipos
+    ds1.push({ label: 'R', data: filtrados.map(r => r[5]), borderColor: '#ff3333', tension: 0.2 });
+    ds1.push({ label: 'S', data: filtrados.map(r => r[6]), borderColor: '#3366ff', tension: 0.2 });
+    if (mF !== "BD04") {
+      ds1.push({ label: 'T', data: filtrados.map(r => r[7]), borderColor: '#33cc33', tension: 0.2 });
+    }
   }
 
   const esCaja = (tipoNorm === "caja");
   const esEspecial = (tipoNorm === "hidraulico" || tipoNorm === "lubricacion" || esCaja);
   const esIntercambiador = (motorNorm === "intercambiador");
 
-  let labelPrincipal = esCaja ? 'TEMP CAJA' : ((esEspecial || (tipoNorm==="hidraulico" && motorNorm==="reservorio")) ? 'NIVEL' : (esIntercambiador ? 'INGRESO' : 'T-FRON'));
+  let labelPrincipal = esServo ? 'T MOTOR' : (esCaja ? 'TEMP CAJA' : ((esEspecial || (tipoNorm==="hidraulico" && motorNorm==="reservorio")) ? 'NIVEL' : (esIntercambiador ? 'INGRESO' : 'T-FRON')));
 
   let ds2 = [{ 
     label: labelPrincipal, 
@@ -522,17 +552,22 @@ async function loadData() {
     borderColor: '#ffcc00', tension: 0.2 
   }];
   
-  if (esIntercambiador || (!esEspecial && motorNorm !== "reservorio")) {
-    ds2.push({ label: esIntercambiador ? 'RETORNO' : 'T-BOB', data: filtrados.map(r => r[9]), borderColor: '#ff00ff', tension: 0.2 });
-    if (!esIntercambiador && tipoNorm !== "motor") {
+  if (esServo || esIntercambiador || (!esEspecial && motorNorm !== "reservorio")) {
+    ds2.push({ label: esServo ? 'T DRIVE' : (esIntercambiador ? 'RETORNO' : 'T-BOB'), data: filtrados.map(r => r[9]), borderColor: '#ff00ff', tension: 0.2 });
+    if (!esServo && !esIntercambiador && tipoNorm !== "motor") {
       ds2.push({ label: 'T-CARA', data: filtrados.map(r => r[10]), borderColor: '#00ffff', tension: 0.2 });
     }
+  }
+
+  // Si es SERVO, agregamos CARGA (columna S / index 6) al segundo gráfico
+  if (esServo) {
+    ds2.push({ label: 'CARGA (A)', data: filtrados.map(r => r[6]), borderColor: '#3366ff', tension: 0.2 });
   }
 
   actualizarChart('chartRST', labels, ds1, chart1, (c) => chart1 = c);
   actualizarChart('chartTFTBTC', labels, ds2, chart2, (c) => chart2 = c);
   actualizarBadge();
-  actualizarResumen(); // Actualizamos el resumen para chequear alertas
+  actualizarResumen();
 }
 
 function actualizarChart(id, labels, datasets, obj, save) {
@@ -616,7 +651,6 @@ async function enviarDatos() {
     await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
     alert("TRANSMISIÓN EXITOSA ✅"); 
     
-    // Limpieza de campos de ingreso
     document.getElementById('r').value = "";
     document.getElementById('s').value = "";
     document.getElementById('t').value = "";
