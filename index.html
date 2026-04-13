@@ -389,7 +389,7 @@ function actualizarResumen() {
     const tNorm = normalizar(t);
     const eNorm = normalizar(e);
     
-    const esCaja = (tNorm === "caja");
+    const esCaja = (tNorm === "caja" || tNorm === "aire" || tNorm === "agua chiller" || tNorm === "agua torre");
     const esServo = (tNorm === "servo");
     const esEspecial = (tNorm === "hidraulico" || tNorm === "lubricacion" || esCaja);
     const esIntercambiador = (eNorm === "intercambiador");
@@ -397,7 +397,7 @@ function actualizarResumen() {
     let labelR = esServo ? "RPM" : "Amperaje R";
     let labelS = esServo ? "CARGA (A)" : "Amperaje S";
     let labelT = esServo ? "TORQUE" : "Amperaje T";
-    let labelF = esServo ? "T MOTOR" : (esCaja ? "TEMP CAJA" : ((esEspecial || (tNorm === "hidraulico" && eNorm === "reservorio")) ? "NIVEL" : (esIntercambiador ? "INGRESO" : "T-FRON")));
+    let labelF = esServo ? "T MOTOR" : (esCaja ? (tNorm === "caja" ? "TEMP CAJA" : "TEMP") : ((esEspecial || (tNorm === "hidraulico" && eNorm === "reservorio")) ? "NIVEL" : (esIntercambiador ? "INGRESO" : "T-FRON")));
     let labelB = esServo ? "T DRIVE" : (esIntercambiador ? "RETORNO" : "T-BOB");
     let labelC = "T-CARA";
 
@@ -451,7 +451,7 @@ function gestionarVisibilidadIngreso() {
         lC = document.getElementById('label-tc'),
         wT = document.getElementById('wrapper-t');
 
-  const esCaja = (tipo === "caja");
+  const esCaja = (tipo === "caja" || tipo === "aire" || tipo === "agua chiller" || tipo === "agua torre");
   const esServo = (tipo === "servo");
   const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || esCaja);
   const esIntercambiador = (motor === "intercambiador");
@@ -471,7 +471,7 @@ function gestionarVisibilidadIngreso() {
     lR.innerText = "Amp Fase R:"; lS.innerText = "Amp Fase S:";
   } else if (esEspecial) {
     wB.style.display = "none"; wC.style.display = "none";
-    lF.innerText = esCaja ? "Temp Caja (°C):" : "Nivel (%):";
+    lF.innerText = tipo === "caja" ? "Temp Caja (°C):" : (esCaja ? "Temp (°C):" : "Nivel (%):");
   } else {
     lR.innerText = "Amp Fase R:"; lS.innerText = "Amp Fase S:"; lT.innerText = "Amp Fase T:";
     wB.style.display = "contents";
@@ -490,7 +490,7 @@ function gestionarVisibilidadVisualizacion() {
         tit1 = document.getElementById('titulo-grafico1'),
         tit2 = document.getElementById('titulo-grafico2');
   
-  const esCaja = (tipo === "caja");
+  const esCaja = (tipo === "caja" || tipo === "aire" || tipo === "agua chiller" || tipo === "agua torre");
   const esServo = (tipo === "servo");
   const esEspecial = (tipo === "hidraulico" || tipo === "lubricacion" || esCaja);
   const esIntercambiador = (motor === "intercambiador");
@@ -500,7 +500,8 @@ function gestionarVisibilidadVisualizacion() {
 
   if (esServo) { tit1.innerText = "Monitor Dinámico Servo"; tit2.innerText = "Monitor Térmico Servo"; }
   else if (esIntercambiador) tit2.innerText = "Monitor Térmico Intercambiador";
-  else if (esCaja) tit2.innerText = "Monitor Temperatura Caja";
+  else if (tipo === "caja") tit2.innerText = "Monitor Temperatura Caja";
+  else if (esCaja) tit2.innerText = "Monitor Temperatura " + tipo.toUpperCase();
   else if (esEspecial) tit2.innerText = "Monitor de Niveles";
   else { tit1.innerText = "Tendencia de Amperaje"; tit2.innerText = "Monitor Térmico"; }
 }
@@ -540,11 +541,11 @@ async function loadData() {
     }
   }
 
-  const esCaja = (tipoNorm === "caja");
+  const esCaja = (tipoNorm === "caja" || tipoNorm === "aire" || tipoNorm === "agua chiller" || tipoNorm === "agua torre");
   const esEspecial = (tipoNorm === "hidraulico" || tipoNorm === "lubricacion" || esCaja);
   const esIntercambiador = (motorNorm === "intercambiador");
 
-  let labelPrincipal = esServo ? 'T MOTOR' : (esCaja ? 'TEMP CAJA' : ((esEspecial || (tipoNorm==="hidraulico" && motorNorm==="reservorio")) ? 'NIVEL' : (esIntercambiador ? 'INGRESO' : 'T-FRON')));
+  let labelPrincipal = esServo ? 'T MOTOR' : (esCaja ? (tipoNorm === "caja" ? 'TEMP CAJA' : 'TEMP') : ((esEspecial || (tipoNorm==="hidraulico" && motorNorm==="reservorio")) ? 'NIVEL' : (esIntercambiador ? 'INGRESO' : 'T-FRON')));
 
   let ds2 = [{ 
     label: labelPrincipal, 
