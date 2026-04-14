@@ -471,7 +471,12 @@ function gestionarVisibilidadIngreso() {
     lR.innerText = "Amp Fase R:"; lS.innerText = "Amp Fase S:";
   } else if (esEspecial) {
     wB.style.display = "none"; wC.style.display = "none";
-    lF.innerText = tipo === "caja" ? "Temp Caja (°C):" : (esCaja ? "Temp (°C):" : "Nivel (%):");
+    
+    if (tipo === "aire" || tipo === "agua chiller" || tipo === "agua torre") {
+        lF.innerText = "Presión (PSI):"; 
+    } else {
+        lF.innerText = tipo === "caja" ? "Temp Caja (°C):" : "Nivel (%):";
+    }
   } else {
     lR.innerText = "Amp Fase R:"; lS.innerText = "Amp Fase S:"; lT.innerText = "Amp Fase T:";
     wB.style.display = "contents";
@@ -501,7 +506,7 @@ function gestionarVisibilidadVisualizacion() {
   if (esServo) { tit1.innerText = "Monitor Dinámico Servo"; tit2.innerText = "Monitor Térmico Servo"; }
   else if (esIntercambiador) tit2.innerText = "Monitor Térmico Intercambiador";
   else if (tipo === "caja") tit2.innerText = "Monitor Temperatura Caja";
-  else if (esCaja) tit2.innerText = "Monitor Temperatura " + tipo.toUpperCase();
+  else if (esCaja) tit2.innerText = "Monitor " + tipo.toUpperCase();
   else if (esEspecial) tit2.innerText = "Monitor de Niveles";
   else { tit1.innerText = "Tendencia de Amperaje"; tit2.innerText = "Monitor Térmico"; }
 }
@@ -529,11 +534,9 @@ async function loadData() {
 
   let ds1 = [];
   if (esServo) {
-    // Para SERVO: Solo RPM y TORQUE en el primer gráfico
     ds1.push({ label: 'RPM', data: filtrados.map(r => r[5]), borderColor: '#ff3333', tension: 0.2 });
     ds1.push({ label: 'TORQUE', data: filtrados.map(r => r[7]), borderColor: '#33cc33', tension: 0.2 });
   } else {
-    // Comportamiento normal para otros tipos
     ds1.push({ label: 'R', data: filtrados.map(r => r[5]), borderColor: '#ff3333', tension: 0.2 });
     ds1.push({ label: 'S', data: filtrados.map(r => r[6]), borderColor: '#3366ff', tension: 0.2 });
     if (mF !== "BD04") {
@@ -545,7 +548,7 @@ async function loadData() {
   const esEspecial = (tipoNorm === "hidraulico" || tipoNorm === "lubricacion" || esCaja);
   const esIntercambiador = (motorNorm === "intercambiador");
 
-  let labelPrincipal = esServo ? 'T MOTOR' : (esCaja ? (tipoNorm === "caja" ? 'TEMP CAJA' : 'TEMP') : ((esEspecial || (tipoNorm==="hidraulico" && motorNorm==="reservorio")) ? 'NIVEL' : (esIntercambiador ? 'INGRESO' : 'T-FRON')));
+  let labelPrincipal = esServo ? 'T MOTOR' : (esCaja ? (tipoNorm === "caja" ? 'TEMP CAJA' : 'VALOR') : ((esEspecial || (tipoNorm==="hidraulico" && motorNorm==="reservorio")) ? 'NIVEL' : (esIntercambiador ? 'INGRESO' : 'T-FRON')));
 
   let ds2 = [{ 
     label: labelPrincipal, 
@@ -560,7 +563,6 @@ async function loadData() {
     }
   }
 
-  // Si es SERVO, agregamos CARGA (columna S / index 6) al segundo gráfico
   if (esServo) {
     ds2.push({ label: 'CARGA (A)', data: filtrados.map(r => r[6]), borderColor: '#3366ff', tension: 0.2 });
   }
