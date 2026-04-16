@@ -97,9 +97,9 @@
 Chart.defaults.color = '#888';
 Chart.defaults.borderColor = '#333';
 
-const sheetURL = "https://script.google.com/macros/s/AKfycbzw9qjfWV0otwkTh7iFImbuZ9Sq1pkoHl5EphWyBvTcfOLa1KLsSkbShDFljewvLQ2B/exec";
+const sheetURL = "https://script.google.com/macros/s/AKfycbwS1asqYs3N8IbkUU7d6RKEN-g4ewOZRLiBt--02ftFiQAIqZ7OxlstRtcgl_ckRPat/exec";
 let chart1, chart2, globalData = [];
-let alarmasSilenciadas = JSON.parse(localStorage.getItem('alarmasSilenciadas')) || [];
+let alarmasSilenciadas = []; // Ahora se carga desde la nube
 let alarmasNotificadas = [];
 
 const $ = (id) => document.getElementById(id);
@@ -131,11 +131,21 @@ function evaluarAlertaPersistente(serie) {
   return false;
 }
 
-function eliminarAlarma(id) {
+async function eliminarAlarma(id) {
   if(!alarmasSilenciadas.includes(id)) {
+    // Optimismo: quitar de la interfaz de inmediato
     alarmasSilenciadas.push(id);
-    localStorage.setItem('alarmasSilenciadas', JSON.stringify(alarmasSilenciadas));
     actualizarResumen();
+    
+    // Sincronizar con Google Sheets
+    try {
+      await fetch(sheetURL, { 
+        method: 'POST', 
+        body: JSON.stringify({ accion: "silenciar", idAlarma: id }) 
+      });
+    } catch (e) {
+      console.error("Error al sincronizar silencio de alarma:", e);
+    }
   }
 }
 
@@ -229,13 +239,23 @@ function gestionarVisibilidadVisualizacion() {
 }
 
 async function loadData() {
-  if (globalData.length === 0) {
-    try {
-      const res = await fetch(sheetURL);
-      globalData = (await res.json()).slice(1);
-      loadDropdowns();
-      loadSelectIngreso();
-    } catch (e) { console.error(e); return; }
+  try {
+    const res = await fetch(sheetURL);
+    const dataJSON = await res.json();
+    
+    // Asumiendo que el JSON ahora devuelve un objeto con {datos: [], silenciadas: []}
+    // Si tu script devuelve solo el array de datos, esto no cambiará nada hasta que actualices el script.
+    if (dataJSON.silenciadas) {
+        alarmasSilenciadas = dataJSON.silenciadas;
+    }
+    
+    globalData = (Array.isArray(dataJSON) ? dataJSON : dataJSON.datos).slice(1);
+    
+    loadDropdowns();
+    loadSelectIngreso();
+  } catch (e) { 
+    console.error(e); 
+    return; 
   }
 
   const mF = $('filtroMaquina').value, tF = $('filtroTipo').value, eF = $('filtroMotor').value;
