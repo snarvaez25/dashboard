@@ -146,9 +146,20 @@ function actualizarBadge() {
     if (alarmasSilenciadas.includes(id)) return;
     const [m, t, e] = id.split('|');
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
+    
+    // Alerta Predictiva (Alza persistente)
     const vars = m === "BD04" ? [5,6,8,9,10] : [5,6,7,8,9,10];
-    let alerta = vars.some(idx => evaluarAlertaPersistente(filtrados.map(r => Number(r[idx])).filter(v => v !== 0)));
-    if (alerta) contadorTotal++;
+    let alertaPred = vars.some(idx => evaluarAlertaPersistente(filtrados.map(r => Number(r[idx])).filter(v => v !== 0)));
+    
+    // Alerta Nivel Bajo (Menor a 30%)
+    let alertaNivel = false;
+    const eNorm = normalizar(e);
+    if (eNorm === "reservorio" || eNorm === "centralizado") {
+        const ultimoValor = Number(filtrados[filtrados.length - 1]?.[8]); // Columna tf
+        if (ultimoValor > 0 && ultimoValor < 30) alertaNivel = true;
+    }
+
+    if (alertaPred || alertaNivel) contadorTotal++;
   });
   const b = $('badge-alertas');
   if (b) { b.innerText = contadorTotal; b.style.display = contadorTotal > 0 ? 'block' : 'none'; }
@@ -175,17 +186,35 @@ function actualizarResumen() {
     };
 
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
+    
+    // Evaluar Alzas Predictivas
     let check = [{n:labels.R, i:5}, {n:labels.S, i:6}];
     if (m !== "BD04" || esServo) check.push({n:labels.T, i:7});
     check.push({n:labels.F, i:8}, {n:labels.B, i:9});
     if(!esServo) check.push({n:labels.C, i:10});
-
     let activas = check.filter(v => evaluarAlertaPersistente(filtrados.map(r => Number(r[v.i])).filter(val => val !== 0))).map(v => v.n);
 
-    if (activas.length > 0) {
+    // Evaluar Nivel Bajo (<30%)
+    let nivelCriticoMsg = "";
+    if (eN === "reservorio" || eN === "centralizado") {
+        const ultimoNivel = Number(filtrados[filtrados.length - 1]?.[8]);
+        if (ultimoNivel > 0 && ultimoNivel < 30) {
+            nivelCriticoMsg = `🔴 <b>NIVEL CRÍTICO: ${ultimoNivel}%</b>`;
+        }
+    }
+
+    if (activas.length > 0 || nivelCriticoMsg !== "") {
       huboAlertas = true;
-      contenedor.innerHTML += `<div class="alert-card"><div><h3>MÁQUINA: ${m} | TIPO: ${t} | EQUIPO: ${e}</h3><p>⚠️ ALERTA: Alza en: <b>${activas.join(', ')}</b></p></div><button class="btn-eliminar" onclick="eliminarAlarma('${id}')">REVISADO</button></div>`;
-      if (!alarmasNotificadas.includes(id)) { dispararNotificacion(`¡ALERTA PREDICTIVA!`, `${m} (${e}) alza en: ${activas.join(', ')}`); alarmasNotificadas.push(id); }
+      let msgFinal = activas.length > 0 ? `⚠️ ALERTA: Alza en: <b>${activas.join(', ')}</b>` : "";
+      if (nivelCriticoMsg !== "") msgFinal += (msgFinal ? " | " : "") + nivelCriticoMsg;
+
+      contenedor.innerHTML += `<div class="alert-card"><div><h3>MÁQUINA: ${m} | EQUIPO: ${e}</h3><p>${msgFinal}</p></div><button class="btn-eliminar" onclick="eliminarAlarma('${id}')">REVISADO</button></div>`;
+      
+      if (!alarmasNotificadas.includes(id)) { 
+          const tituloNotif = nivelCriticoMsg !== "" ? "¡NIVEL BAJO DETECTADO!" : "¡ALERTA PREDICTIVA!";
+          dispararNotificacion(tituloNotif, `${m} - ${e}: Verifique parámetros.`); 
+          alarmasNotificadas.push(id); 
+      }
     }
   });
   if (!huboAlertas) contenedor.innerHTML = '<div class="no-alerts">SISTEMAS NORMALES</div>';
