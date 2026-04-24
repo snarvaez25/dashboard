@@ -346,7 +346,7 @@ function actualizarResumen() {
     
     let labels = {
       R: esServo ? "RPM" : "Amperaje R", S: esServo ? "CARGA (A)" : "Amperaje S", T: esServo ? "TORQUE" : "Amperaje T",
-      F: esServo ? "T MOTOR" : (esAceite ? "TEMP ACEITE" : (esCaja ? "TEMP CAJA" : (esTacometro ? "PRESIÓN (PSI)" : (esEsp ? "NIVEL" : "T-FRON")))),
+      F: esServo ? "T MOTOR" : (esAceite ? "TEMP ACEITE" : (esCaja ? "TEMP CAJA" : (esTacometro ? "RPM" : (esEsp ? "NIVEL" : "T-FRON")))),
       B: esServo ? "T DRIVE" : (esInt ? "RETORNO" : "T-BOB"), C: "T-CARA"
     };
 
@@ -388,7 +388,7 @@ function gestionarVisibilidadIngreso() {
     $('label-tf').innerText = "Ingreso (°C):"; $('label-tb').innerText = "Retorno (°C):";
     $('wrapper-tb').style.display = "contents"; $('wrapper-tc').style.display = "none";
   } else if (esEsp) {
-    $('label-tf').innerText = esTacometro ? "Presión (PSI):" : ((esNivel || t.includes("HIDRAULICO") || t.includes("LUBRICACION")) ? "Nivel (%):" : (t.includes("AIRE") ? "Presión (PSI):" : "Temp Caja (°C):"));
+    $('label-tf').innerText = esTacometro ? "RPM:" : ((esNivel || t.includes("HIDRAULICO") || t.includes("LUBRICACION")) ? "Nivel (%):" : (t.includes("AIRE") ? "Presión (PSI):" : "Temp Caja (°C):"));
     $('wrapper-tb').style.display = "none"; $('wrapper-tc').style.display = "none";
   } else {
     $('label-tf').innerText = "T Frontal:"; $('label-tb').innerText = "T Bobina:";
@@ -406,7 +406,7 @@ function gestionarVisibilidadVisualizacion() {
   $('container-chartRST').style.display = (esEsp || esInt || esAceite) ? "none" : "block";
   if(esServo) $('container-chartRST').style.display = "block";
   
-  $('titulo-grafico2').innerText = esAceite ? "Monitor Temp. Aceite" : (esServo ? "Monitor Térmico Servo" : (esInt ? "Monitor Intercambiador" : (esTacometro ? "Monitor de Presión (PSI)" : (esNivel ? "Monitor de Nivel (%)" : "Monitor Térmico"))));
+  $('titulo-grafico2').innerText = esAceite ? "Monitor Temp. Aceite" : (esServo ? "Monitor Térmico Servo" : (esInt ? "Monitor Intercambiador" : (esTacometro ? "Monitor de RPM" : (esNivel ? "Monitor de Nivel (%)" : "Monitor Térmico"))));
 }
 
 async function loadData() {
@@ -427,7 +427,7 @@ async function loadData() {
   let ds2Label = "T-FRON";
   if(eN.includes("ACEITE")) ds2Label = "TEMP °C";
   else if(tN.includes("SERVO")) ds2Label = "T MOTOR";
-  else if(eN.includes("TACÓMETRO")) ds2Label = "PSI";
+  else if(eN.includes("TACÓMETRO")) ds2Label = "RPM";
   else if(tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO")) ds2Label = "NIVEL %";
 
   let ds2 = [{ label: ds2Label, data: filtrados.map(r => r[8]), borderColor: '#ff9f43', backgroundColor: 'rgba(255, 159, 67, 0.1)', fill: true, tension: 0.3 }];
