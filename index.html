@@ -2,51 +2,219 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Sistema de Control Envases</title>
+  <title>Sistema de Control Envases | Business Intelligence</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: 'Segoe UI', Roboto, Arial, sans-serif; background-color: #1a1c1e; margin: 0; padding: 20px; color: #e0e0e0; }
-    h2 { color: #00ffcc; font-size: 1.1rem; border-left: 4px solid #00ffcc; padding-left: 10px; margin-top: 0; text-transform: uppercase; letter-spacing: 1px; }
-    .tabs { display: flex; gap: 5px; border-bottom: 2px solid #333; }
-    .tab { padding: 12px 25px; cursor: pointer; background: #2d2d2d; border: 1px solid #444; border-bottom: none; border-radius: 5px 5px 0 0; transition: 0.2s; font-weight: 600; color: #888; text-transform: uppercase; font-size: 0.8rem; }
-    .tab:hover { background: #3d3d3d; color: #fff; }
-    .tab.active { background: #333; color: #00ffcc; border-top: 3px solid #00ffcc; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); }
-    .badge { position: absolute; top: 2px; right: 2px; background-color: #ff3333; color: white; border-radius: 3px; padding: 1px 5px; font-size: 10px; display: none; box-shadow: 0 0 8px rgba(255,51,51,0.5); }
-    .tab-content { display: none; background: #25282a; padding: 25px; border: 1px solid #333; border-top: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    /* Paleta de colores inspirada en Power BI Light Theme */
+    :root {
+      --bg-main: #f3f4f6;
+      --bg-card: #ffffff;
+      --primary: #115da9; /* Azul Power BI */
+      --secondary: #607d8b;
+      --accent: #00bfa5;
+      --text-main: #2d3436;
+      --text-muted: #636e72;
+      --border: #dfe6e9;
+      --danger: #d63031;
+    }
+
+    body { 
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+      background-color: var(--bg-main); 
+      margin: 0; 
+      padding: 20px; 
+      color: var(--text-main); 
+    }
+
+    /* Títulos Estilo Dashboard */
+    h2 { 
+      color: var(--primary); 
+      font-size: 1.2rem; 
+      border-left: 5px solid var(--primary); 
+      padding-left: 12px; 
+      margin-bottom: 20px;
+      margin-top: 0;
+      font-weight: 600;
+    }
+
+    /* Pestañas Modernas */
+    .tabs { 
+      display: flex; 
+      gap: 2px; 
+      background: #e2e8f0;
+      padding: 5px 5px 0 5px;
+      border-radius: 8px 8px 0 0;
+    }
+
+    .tab { 
+      padding: 12px 25px; 
+      cursor: pointer; 
+      background: transparent; 
+      border: none;
+      border-radius: 6px 6px 0 0; 
+      transition: all 0.3s ease; 
+      font-weight: 600; 
+      color: var(--text-muted); 
+      font-size: 0.85rem; 
+    }
+
+    .tab:hover { 
+      background: rgba(255,255,255,0.5); 
+      color: var(--primary); 
+    }
+
+    .tab.active { 
+      background: var(--bg-card); 
+      color: var(--primary); 
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    }
+
+    /* Contenedores */
+    .tab-content { 
+      display: none; 
+      background: var(--bg-card); 
+      padding: 30px; 
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08); 
+    }
+
     .tab-content.active { display: block; }
-    .box { background: #2d3033; padding: 20px; border: 1px solid #3d4144; border-radius: 4px; }
-    label { font-size: 0.75rem; color: #aaa; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; display: block; }
-    select, input { background: #1a1c1e; border: 1px solid #444; color: #00ffcc; padding: 8px; border-radius: 3px; margin-bottom: 15px; width: 100%; box-sizing: border-box; }
-    select:focus, input:focus { outline: none; border-color: #00ffcc; box-shadow: 0 0 5px rgba(0,255,204,0.3); }
-    button { padding: 12px 24px; border: 1px solid #008f7a; background: linear-gradient(to bottom, #00b395, #007a66); color: white; border-radius: 3px; cursor: pointer; font-weight: bold; text-transform: uppercase; transition: 0.2s; }
-    button:hover { background: linear-gradient(to bottom, #00d1ae, #008f7a); box-shadow: 0 0 10px rgba(0,255,204,0.4); }
-    button.btn-eliminar { padding: 5px 10px; font-size: 0.7rem; background: #444; border: 1px solid #666; margin-top: 10px; }
-    button:disabled { background: #444; border-color: #555; cursor: not-allowed; }
-    .charts-container { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
-    .chart-box { flex: 1; min-width: 45%; background: #1e2124; padding: 15px; border: 1px solid #333; border-radius: 4px; }
+
+    .box { 
+      background: #fafbfc; 
+      padding: 25px; 
+      border: 1px solid var(--border); 
+      border-radius: 8px; 
+    }
+
+    /* Formularios */
+    label { 
+      font-size: 0.75rem; 
+      color: var(--text-muted); 
+      font-weight: 700; 
+      text-transform: uppercase; 
+      margin-bottom: 6px; 
+      display: block; 
+    }
+
+    select, input { 
+      background: white; 
+      border: 1px solid var(--border); 
+      color: var(--text-main); 
+      padding: 10px; 
+      border-radius: 6px; 
+      margin-bottom: 15px; 
+      width: 100%; 
+      box-sizing: border-box; 
+      font-size: 0.9rem;
+      transition: border 0.2s;
+    }
+
+    select:focus, input:focus { 
+      outline: none; 
+      border-color: var(--primary); 
+      box-shadow: 0 0 0 3px rgba(17, 93, 169, 0.1); 
+    }
+
+    /* Botones Estilo BI */
+    button { 
+      padding: 12px 28px; 
+      border: none; 
+      background: var(--primary); 
+      color: white; 
+      border-radius: 6px; 
+      cursor: pointer; 
+      font-weight: 600; 
+      text-transform: uppercase; 
+      transition: all 0.3s; 
+      font-size: 0.8rem;
+      letter-spacing: 0.5px;
+    }
+
+    button:hover { 
+      background: #0d4a86; 
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(17, 93, 169, 0.2);
+    }
+
+    button.btn-eliminar { 
+      background: #f1f2f6; 
+      color: var(--danger); 
+      border: 1px solid #fab1a0;
+      padding: 6px 12px;
+    }
+    
+    button.btn-eliminar:hover { background: #feebe7; }
+
+    /* Gráficos */
+    .charts-container { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 25px; }
+
+    .chart-box { 
+      flex: 1; 
+      min-width: 45%; 
+      background: white; 
+      padding: 20px; 
+      border: 1px solid var(--border); 
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    /* Grid del Formulario */
     .form-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-    .col { display: grid; grid-template-columns: 110px 1fr; gap: 5px; align-items: center; }
-    .alert-card { background: linear-gradient(90deg, #3a1c1c 0%, #25282a 100%); border: 1px solid #ff3333; padding: 15px; margin-bottom: 10px; border-left: 6px solid #ff3333; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
-    .alert-card h3 { margin: 0 0 5px 0; color: #ff6666; font-size: 0.9rem; letter-spacing: 1px;}
-    .alert-card p { margin: 0; font-size: 0.85rem; color: #ddd; }
-    .no-alerts { color: #00ffcc; text-align: center; padding: 40px; border: 1px dashed #333; background: rgba(0,255,204,0.02); }
+    .col { display: grid; grid-template-columns: 130px 1fr; gap: 8px; align-items: center; }
+
+    /* Alertas */
+    .alert-card { 
+      background: #fff5f5; 
+      border: 1px solid #feb2b2; 
+      padding: 18px; 
+      margin-bottom: 12px; 
+      border-left: 6px solid var(--danger); 
+      border-radius: 8px; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+    }
+
+    .alert-card h3 { margin: 0 0 5px 0; color: #c53030; font-size: 0.95rem; }
+    .alert-card p { margin: 0; font-size: 0.85rem; color: #4a5568; }
+
+    .badge { 
+      position: absolute; top: -5px; right: -8px; 
+      background-color: var(--danger); 
+      color: white; border-radius: 20px; 
+      padding: 2px 8px; font-size: 11px; 
+      display: none; font-weight: bold;
+      border: 2px solid white;
+    }
+
+    .no-alerts { 
+      color: var(--accent); 
+      text-align: center; 
+      padding: 50px; 
+      border: 2px dashed var(--border); 
+      background: #f0fff4; 
+      border-radius: 8px;
+      font-weight: 600;
+    }
+
     #hora, #fecha { display: none; }
   </style>
 </head>
 <body>
 
 <div class="tabs">
-  <div class="tab active" onclick="cambiarTab('ingreso')">Terminal de Entrada</div>
-  <div class="tab" onclick="cambiarTab('visualizacion')">Monitor de Tendencias</div>
+  <div class="tab active" onclick="cambiarTab('ingreso')">📥 Terminal de Entrada</div>
+  <div class="tab" onclick="cambiarTab('visualizacion')">📊 Monitor de Tendencias</div>
   <div class="tab" onclick="cambiarTab('resumen'); actualizarResumen();" style="position:relative">
-    Registro de Alarmas <span id="badge-alertas" class="badge">0</span>
+    🔔 Registro de Alarmas <span id="badge-alertas" class="badge">0</span>
   </div>
 </div>
 
 <div id="ingreso" class="tab-content active">
   <div class="box">
     <h2>Registro de Parámetros de Campo</h2>
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;">
       <div><label>Unidad/Máquina</label><select id="maquina"></select></div>
       <div><label>Categoría</label><select id="tipo"></select></div>
       <div><label>Subsistema</label><select id="motor"></select></div>
@@ -73,11 +241,11 @@
 <div id="visualizacion" class="tab-content">
   <div class="box">
     <h2>Filtros de Análisis de Telemetría</h2>
-    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end;">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; align-items: end;">
       <div><label>Máquina</label><select id="filtroMaquina"></select></div>
       <div><label>Tipo</label><select id="filtroTipo"></select></div>
       <div><label>Equipo</label><select id="filtroMotor"></select></div>
-      <button onclick="loadData()">Actualizar Gráficos</button>
+      <button onclick="loadData()" style="width: 100%;">Actualizar Gráficos</button>
     </div>
   </div>
   <div class="charts-container">
@@ -94,8 +262,9 @@
 </div>
 
 <script>
-Chart.defaults.color = '#888';
-Chart.defaults.borderColor = '#333';
+/* MANTENIENDO LÓGICA ORIGINAL */
+Chart.defaults.color = '#636e72';
+Chart.defaults.borderColor = '#dfe6e9';
 
 const sheetURL = "https://script.google.com/macros/s/AKfycby6d-1MkBHwZ4xDbvNNfaowjS8obkUxSxkUppTy0ia6xr4wHa6-mEg_8saIJ2B4u-3O/exec";
 let chart1, chart2, globalData = [];
@@ -192,7 +361,7 @@ function actualizarResumen() {
       contenedor.innerHTML += `<div class="alert-card"><div><h3>MÁQUINA: ${m} | EQUIPO: ${e}</h3><p>⚠️ ALERTA: Alza en: <b>${activas.join(', ')}</b></p></div><button class="btn-eliminar" onclick="eliminarAlarma('${id}')">REVISADO</button></div>`;
     }
   });
-  if (!huboAlertas) contenedor.innerHTML = '<div class="no-alerts">SISTEMAS NORMALES</div>';
+  if (!huboAlertas) contenedor.innerHTML = '<div class="no-alerts">SISTEMAS OPERANDO NORMALMENTE</div>';
   actualizarBadge();
 }
 
@@ -257,14 +426,17 @@ async function loadData() {
   else if(tN.includes("SERVO")) ds2Label = "T MOTOR";
   else if(tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO")) ds2Label = "NIVEL %";
 
-  let ds2 = [{ label: ds2Label, data: filtrados.map(r => r[8]), borderColor: '#ffcc00' }];
+  let ds2 = [{ label: ds2Label, data: filtrados.map(r => r[8]), borderColor: '#ff9f43', backgroundColor: 'rgba(255, 159, 67, 0.1)', fill: true, tension: 0.3 }];
   
   if (tN.includes("SERVO") || eN.includes("INTERCAMBIADOR") || (!tN.includes("HIDRAULICO") && !eN.includes("ACEITE") && !eN.includes("RESERVORIO") && !eN.includes("CENTRALIZADO"))) {
-    ds2.push({ label: tN.includes("SERVO") ? 'T DRIVE' : 'T-BOB', data: filtrados.map(r => r[9]), borderColor: '#ff00ff' });
+    ds2.push({ label: tN.includes("SERVO") ? 'T DRIVE' : 'T-BOB', data: filtrados.map(r => r[9]), borderColor: '#0984e3', tension: 0.3 });
   }
 
-  let ds1 = [{ label: 'R', data: filtrados.map(r => r[5]), borderColor: '#ff3333' }, { label: 'S', data: filtrados.map(r => r[6]), borderColor: '#3366ff' }];
-  if (mF !== "BD04") ds1.push({ label: 'T', data: filtrados.map(r => r[7]), borderColor: '#33cc33' });
+  let ds1 = [
+    { label: 'Fase R', data: filtrados.map(r => r[5]), borderColor: '#d63031', tension: 0.3 }, 
+    { label: 'Fase S', data: filtrados.map(r => r[6]), borderColor: '#00b894', tension: 0.3 }
+  ];
+  if (mF !== "BD04") ds1.push({ label: 'Fase T', data: filtrados.map(r => r[7]), borderColor: '#0984e3', tension: 0.3 });
 
   actualizarChart('chartRST', labels, ds1, chart1, c => chart1 = c);
   actualizarChart('chartTFTBTC', labels, ds2, chart2, c => chart2 = c);
@@ -275,7 +447,7 @@ async function loadData() {
 function actualizarChart(id, labels, datasets, obj, save) {
   const ctx = $(id).getContext('2d');
   if (obj) { obj.data.labels = labels; obj.data.datasets = datasets; obj.update(); } 
-  else { save(new Chart(ctx, { type: 'line', data: { labels, datasets }, options: { responsive: true } })); }
+  else { save(new Chart(ctx, { type: 'line', data: { labels, datasets }, options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: false } } } })); }
 }
 
 function loadSelectIngreso() {
@@ -310,14 +482,14 @@ async function enviarDatos() {
   const btn = $('btnGuardar'), now = new Date();
   $('fecha').valueAsDate = now; $('hora').value = now.toTimeString().slice(0,5);
   const datos = [$('maquina').value, $('tipo').value, $('motor').value, $('hora').value, $('fecha').value, Number($('r').value)||0, Number($('s').value)||0, Number($('t').value)||0, Number($('tf').value)||0, Number($('tb').value)||0, Number($('tc').value)||0];
-  if(!datos[0] || !datos[1] || !datos[2]) { alert("ERROR: Faltan datos"); return; }
+  if(!datos[0] || !datos[1] || !datos[2]) { alert("ERROR: Faltan datos obligatorios"); return; }
   btn.disabled = true; btn.innerText = "TRANSMITIENDO...";
   try {
     await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
-    alert("ÉXITO ✅");
+    alert("DATOS CARGADOS CON ÉXITO ✅");
     ['r','s','t','tf','tb','tc','maquina'].forEach(id => $(id).value = "");
     globalData = []; loadData();
-  } catch (e) { alert("ERROR ❌"); } 
+  } catch (e) { alert("ERROR DE CONEXIÓN ❌"); } 
   finally { btn.disabled = false; btn.innerText = "Ejecutar Carga de Datos"; }
 }
 
