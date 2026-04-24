@@ -317,7 +317,7 @@ function actualizarBadge() {
     const vars = m === "BD04" ? [5,6,8,9,10] : [5,6,7,8,9,10];
     let alertaPred = vars.some(idx => evaluarAlertaPersistente(filtrados.map(r => Number(r[idx])).filter(v => v !== 0)));
     let alertaNivel = false;
-    if (normalizar(e).includes("RESERVORIO") || normalizar(e).includes("CENTRALIZADO")) {
+    if (normalizar(e).includes("RESERVORIO") || normalizar(e).includes("CENTRALIZADO") || normalizar(e).includes("TACÓMETRO")) {
         const ultimoValor = Number(filtrados[filtrados.length - 1]?.[8]); 
         if (ultimoValor > 0 && ultimoValor < 30) alertaNivel = true;
     }
@@ -340,12 +340,13 @@ function actualizarResumen() {
     const tN = normalizar(t), eN = normalizar(e);
     const esCaja = tN.includes("CAJA") || tN.includes("AIRE");
     const esAceite = eN.includes("ACEITE");
+    const esTacometro = eN.includes("TACÓMETRO");
     const esNivel = eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO");
-    const esServo = tN.includes("SERVO"), esEsp = tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || esCaja || esNivel, esInt = eN.includes("INTERCAMBIADOR");
+    const esServo = tN.includes("SERVO"), esEsp = tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || esCaja || esNivel || esTacometro, esInt = eN.includes("INTERCAMBIADOR");
     
     let labels = {
       R: esServo ? "RPM" : "Amperaje R", S: esServo ? "CARGA (A)" : "Amperaje S", T: esServo ? "TORQUE" : "Amperaje T",
-      F: esServo ? "T MOTOR" : (esAceite ? "TEMP ACEITE" : (esCaja ? "TEMP CAJA" : (esEsp ? "NIVEL" : "T-FRON"))),
+      F: esServo ? "T MOTOR" : (esAceite ? "TEMP ACEITE" : (esCaja ? "TEMP CAJA" : (esTacometro ? "PRESIÓN (PSI)" : (esEsp ? "NIVEL" : "T-FRON")))),
       B: esServo ? "T DRIVE" : (esInt ? "RETORNO" : "T-BOB"), C: "T-CARA"
     };
 
@@ -369,8 +370,9 @@ function gestionarVisibilidadIngreso() {
   const m = $('maquina').value, t = normalizar($('tipo').value), e = normalizar($('motor').value);
   const esCaja = t.includes("CAJA") || t.includes("AIRE");
   const esServo = t.includes("SERVO"), esInt = e.includes("INTERCAMBIADOR"), esAceite = e.includes("ACEITE");
+  const esTacometro = e.includes("TACÓMETRO");
   const esNivel = e.includes("RESERVORIO") || e.includes("CENTRALIZADO");
-  const esEsp = t.includes("HIDRAULICO") || t.includes("LUBRICACION") || esCaja || esNivel;
+  const esEsp = t.includes("HIDRAULICO") || t.includes("LUBRICACION") || esCaja || esNivel || esTacometro;
 
   $('col-rst').style.display = (esEsp || esInt || esAceite) ? "none" : "grid";
   if(esServo) $('col-rst').style.display = "grid"; 
@@ -386,7 +388,7 @@ function gestionarVisibilidadIngreso() {
     $('label-tf').innerText = "Ingreso (°C):"; $('label-tb').innerText = "Retorno (°C):";
     $('wrapper-tb').style.display = "contents"; $('wrapper-tc').style.display = "none";
   } else if (esEsp) {
-    $('label-tf').innerText = (esNivel || t.includes("HIDRAULICO") || t.includes("LUBRICACION")) ? "Nivel (%):" : (t.includes("AIRE") ? "Presión (PSI):" : "Temp Caja (°C):");
+    $('label-tf').innerText = esTacometro ? "Presión (PSI):" : ((esNivel || t.includes("HIDRAULICO") || t.includes("LUBRICACION")) ? "Nivel (%):" : (t.includes("AIRE") ? "Presión (PSI):" : "Temp Caja (°C):"));
     $('wrapper-tb').style.display = "none"; $('wrapper-tc').style.display = "none";
   } else {
     $('label-tf').innerText = "T Frontal:"; $('label-tb').innerText = "T Bobina:";
@@ -397,13 +399,14 @@ function gestionarVisibilidadIngreso() {
 function gestionarVisibilidadVisualizacion() {
   const t = normalizar($('filtroTipo').value), e = normalizar($('filtroMotor').value);
   const esAceite = e.includes("ACEITE"), esInt = e.includes("INTERCAMBIADOR"), esServo = t.includes("SERVO");
+  const esTacometro = e.includes("TACÓMETRO");
   const esNivel = e.includes("RESERVORIO") || e.includes("CENTRALIZADO");
-  const esEsp = t.includes("HIDRAULICO") || t.includes("LUBRICACION") || t.includes("CAJA") || t.includes("AIRE") || esNivel;
+  const esEsp = t.includes("HIDRAULICO") || t.includes("LUBRICACION") || t.includes("CAJA") || t.includes("AIRE") || esNivel || esTacometro;
   
   $('container-chartRST').style.display = (esEsp || esInt || esAceite) ? "none" : "block";
   if(esServo) $('container-chartRST').style.display = "block";
   
-  $('titulo-grafico2').innerText = esAceite ? "Monitor Temp. Aceite" : (esServo ? "Monitor Térmico Servo" : (esInt ? "Monitor Intercambiador" : (esNivel ? "Monitor de Nivel (%)" : "Monitor Térmico")));
+  $('titulo-grafico2').innerText = esAceite ? "Monitor Temp. Aceite" : (esServo ? "Monitor Térmico Servo" : (esInt ? "Monitor Intercambiador" : (esTacometro ? "Monitor de Presión (PSI)" : (esNivel ? "Monitor de Nivel (%)" : "Monitor Térmico"))));
 }
 
 async function loadData() {
@@ -424,11 +427,12 @@ async function loadData() {
   let ds2Label = "T-FRON";
   if(eN.includes("ACEITE")) ds2Label = "TEMP °C";
   else if(tN.includes("SERVO")) ds2Label = "T MOTOR";
+  else if(eN.includes("TACÓMETRO")) ds2Label = "PSI";
   else if(tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO")) ds2Label = "NIVEL %";
 
   let ds2 = [{ label: ds2Label, data: filtrados.map(r => r[8]), borderColor: '#ff9f43', backgroundColor: 'rgba(255, 159, 67, 0.1)', fill: true, tension: 0.3 }];
   
-  if (tN.includes("SERVO") || eN.includes("INTERCAMBIADOR") || (!tN.includes("HIDRAULICO") && !eN.includes("ACEITE") && !eN.includes("RESERVORIO") && !eN.includes("CENTRALIZADO"))) {
+  if (tN.includes("SERVO") || eN.includes("INTERCAMBIADOR") || (!tN.includes("HIDRAULICO") && !eN.includes("ACEITE") && !eN.includes("RESERVORIO") && !eN.includes("CENTRALIZADO") && !eN.includes("TACÓMETRO"))) {
     ds2.push({ label: tN.includes("SERVO") ? 'T DRIVE' : 'T-BOB', data: filtrados.map(r => r[9]), borderColor: '#0984e3', tension: 0.3 });
   }
 
