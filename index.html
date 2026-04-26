@@ -346,7 +346,7 @@ function actualizarResumen() {
     
     let labels = {
       R: esServo ? "RPM" : "Amperaje R", S: esServo ? "CARGA (A)" : "Amperaje S", T: esServo ? "TORQUE" : "Amperaje T",
-      F: esServo ? "T MOTOR" : (esAceite ? "TEMP ACEITE" : (esCaja ? "TEMP CAJA" : (esTacometro ? "RPM" : (esEsp ? "NIVEL" : "T-FRON")))),
+      F: esServo ? "T MOTOR" : (esAceite ? "TEMP ACEITE" : (esCaja ? "TEMP CAJA" : (esTacometro ? "RPM" : (esEsp ? "NIVEL" : (esInt ? "INGRESO" : "T-FRON"))))),
       B: esServo ? "T DRIVE" : (esInt ? "RETORNO" : "T-BOB"), C: "T-CARA"
     };
 
@@ -391,7 +391,7 @@ function gestionarVisibilidadIngreso() {
     $('label-tf').innerText = esTacometro ? "RPM:" : ((esNivel || t.includes("HIDRAULICO") || t.includes("LUBRICACION")) ? "Nivel (%):" : (t.includes("AIRE") ? "Presión (PSI):" : "Temp Caja (°C):"));
     $('wrapper-tb').style.display = "none"; $('wrapper-tc').style.display = "none";
   } else {
-    $('label-tf').innerText = "T Frontal:"; $('label-tb').innerText = "T Bobina:";
+    $('label-tf').innerText = "T Frontal:"; $('label-tb').innerText = "T-Bobina:";
     $('wrapper-tb').style.display = "contents"; $('wrapper-tc').style.display = t.includes("MOTOR") ? "none" : "contents";
   }
 }
@@ -424,23 +424,31 @@ async function loadData() {
   const filtrados = globalData.filter(r => (!mF||r[0]===mF) && (!tF||r[1]===tF) && (!eF||r[2]===eF));
   const labels = filtrados.map(r => r[4].split('T')[0]);
 
+  // LÓGICA DE ETIQUETAS IGUAL A LA PESTAÑA DE INGRESO
   let ds2Label = "T-FRON";
-  if(eN.includes("ACEITE")) ds2Label = "TEMP °C";
+  if(eN.includes("ACEITE")) ds2Label = "TEMP ACEITE";
   else if(tN.includes("SERVO")) ds2Label = "T MOTOR";
+  else if(eN.includes("INTERCAMBIADOR")) ds2Label = "INGRESO";
   else if(eN.includes("TACÓMETRO")) ds2Label = "RPM";
   else if(tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO")) ds2Label = "NIVEL %";
 
   let ds2 = [{ label: ds2Label, data: filtrados.map(r => r[8]), borderColor: '#ff9f43', backgroundColor: 'rgba(255, 159, 67, 0.1)', fill: true, tension: 0.3 }];
   
   if (tN.includes("SERVO") || eN.includes("INTERCAMBIADOR") || (!tN.includes("HIDRAULICO") && !eN.includes("ACEITE") && !eN.includes("RESERVORIO") && !eN.includes("CENTRALIZADO") && !eN.includes("TACÓMETRO"))) {
-    ds2.push({ label: tN.includes("SERVO") ? 'T DRIVE' : 'T-BOB', data: filtrados.map(r => r[9]), borderColor: '#0984e3', tension: 0.3 });
+    let ds2LabelB = "T-BOB";
+    if(tN.includes("SERVO")) ds2LabelB = "T DRIVE";
+    if(eN.includes("INTERCAMBIADOR")) ds2LabelB = "RETORNO";
+    
+    ds2.push({ label: ds2LabelB, data: filtrados.map(r => r[9]), borderColor: '#0984e3', tension: 0.3 });
   }
 
   let ds1 = [
-    { label: 'Fase R', data: filtrados.map(r => r[5]), borderColor: '#d63031', tension: 0.3 }, 
-    { label: 'Fase S', data: filtrados.map(r => r[6]), borderColor: '#00b894', tension: 0.3 }
+    { label: tN.includes("SERVO") ? 'RPM' : 'Fase R', data: filtrados.map(r => r[5]), borderColor: '#d63031', tension: 0.3 }, 
+    { label: tN.includes("SERVO") ? 'CARGA (A)' : 'Fase S', data: filtrados.map(r => r[6]), borderColor: '#00b894', tension: 0.3 }
   ];
-  if (mF !== "BD04") ds1.push({ label: 'Fase T', data: filtrados.map(r => r[7]), borderColor: '#0984e3', tension: 0.3 });
+  if (mF !== "BD04" || tN.includes("SERVO")) {
+    ds1.push({ label: tN.includes("SERVO") ? 'TORQUE' : 'Fase T', data: filtrados.map(r => r[7]), borderColor: '#0984e3', tension: 0.3 });
+  }
 
   actualizarChart('chartRST', labels, ds1, chart1, c => chart1 = c);
   actualizarChart('chartTFTBTC', labels, ds2, chart2, c => chart2 = c);
