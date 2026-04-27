@@ -307,43 +307,23 @@ function eliminarAlarma(id) {
   }
 }
 
-function actualizarBadge() {
+// FUNCIÓN ÚNICA DE DETECCIÓN PARA EVITAR DESFASES
+function obtenerAlarmasActivas() {
   const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
-  let contadorTotal = 0;
-  ids.forEach(id => {
-    if (alarmasSilenciadas.includes(id)) return;
-    const [m, t, e] = id.split('|');
-    const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
-    const vars = m === "BD04" ? [5,6,8,9,10] : [5,6,7,8,9,10];
-    let alertaPred = vars.some(idx => evaluarAlertaPersistente(filtrados.map(r => Number(r[idx])).filter(v => v !== 0)));
-    let alertaNivel = false;
-    if (normalizar(e).includes("RESERVORIO") || normalizar(e).includes("CENTRALIZADO") || normalizar(e).includes("TACÓMETRO")) {
-        const ultimoValor = Number(filtrados[filtrados.length - 1]?.[8]); 
-        if (ultimoValor > 0 && ultimoValor < 30) alertaNivel = true;
-    }
-    if (alertaPred || alertaNivel) contadorTotal++;
-  });
-  const b = $('badge-alertas');
-  if (b) { b.innerText = contadorTotal; b.style.display = contadorTotal > 0 ? 'block' : 'none'; }
-}
-
-function actualizarResumen() {
-  const contenedor = $('lista-alertas');
-  if (!contenedor) return;
-  contenedor.innerHTML = "";
-  const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
-  let huboAlertas = false;
+  const alarmasEncontradas = [];
 
   ids.forEach(id => {
     if (alarmasSilenciadas.includes(id)) return;
     const [m, t, e] = id.split('|');
     const tN = normalizar(t), eN = normalizar(e);
+    
     const esCaja = tN.includes("CAJA") || tN.includes("AIRE");
     const esAceite = eN.includes("ACEITE");
     const esTacometro = eN.includes("TACÓMETRO");
     const esNivel = eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO");
-    const esServo = tN.includes("SERVO"), esEsp = tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || esCaja || esNivel || esTacometro, esInt = eN.includes("INTERCAMBIADOR");
-    
+    const esServo = tN.includes("SERVO"), esInt = eN.includes("INTERCAMBIADOR");
+    const esEsp = tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || esCaja || esNivel || esTacometro;
+
     let labels = {
       R: esServo ? "RPM" : "Amperaje R", S: esServo ? "CARGA (A)" : "Amperaje S", T: esServo ? "TORQUE" : "Amperaje T",
       F: esServo ? "T MOTOR" : (esAceite ? "TEMP ACEITE" : (esCaja ? "TEMP CAJA" : (esTacometro ? "RPM" : (esEsp ? "NIVEL" : (esInt ? "INGRESO" : "T-FRON"))))),
@@ -355,14 +335,53 @@ function actualizarResumen() {
     if (m !== "BD04" || esServo) check.push({n:labels.T, i:7});
     check.push({n:labels.F, i:8}, {n:labels.B, i:9});
     if(!esServo) check.push({n:labels.C, i:10});
-    let activas = check.filter(v => evaluarAlertaPersistente(filtrados.map(r => Number(r[v.i])).filter(val => val !== 0))).map(v => v.n);
 
-    if (activas.length > 0) {
-      huboAlertas = true;
-      contenedor.innerHTML += `<div class="alert-card"><div><h3>MÁQUINA: ${m} | EQUIPO: ${e}</h3><p>⚠️ ALERTA: Alza en: <b>${activas.join(', ')}</b></p></div><button class="btn-eliminar" onclick="eliminarAlarma('${id}')">REVISADO</button></div>`;
+    // Evaluación Predictiva
+    let variablesConAlza = check.filter(v => evaluarAlertaPersistente(filtrados.map(r => Number(r[v.i])).filter(val => val !== 0))).map(v => v.n);
+    
+    // Evaluación Nivel Crítico
+    let alertaNivel = false;
+    if (esNivel || esTacometro) {
+        const ultimoValor = Number(filtrados[filtrados.length - 1]?.[8]); 
+        if (ultimoValor > 0 && ultimoValor < 30) alertaNivel = true;
+    }
+
+    if (variablesConAlza.length > 0 || alertaNivel) {
+      alarmasEncontradas.push({ id, m, e, vars: variablesConAlza, nivel: alertaNivel });
     }
   });
-  if (!huboAlertas) contenedor.innerHTML = '<div class="no-alerts">SISTEMAS OPERANDO NORMALMENTE</div>';
+  return alarmasEncontradas;
+}
+
+function actualizarBadge() {
+  const activas = obtenerAlarmasActivas();
+  const b = $('badge-alertas');
+  if (b) { 
+    b.innerText = activas.length; 
+    b.style.display = activas.length > 0 ? 'block' : 'none'; 
+  }
+}
+
+function actualizarResumen() {
+  const contenedor = $('lista-alertas');
+  if (!contenedor) return;
+  contenedor.innerHTML = "";
+  
+  const activas = obtenerAlarmasActivas();
+
+  if (activas.length === 0) {
+    contenedor.innerHTML = '<div class="no-alerts">SISTEMAS OPERANDO NORMALMENTE</div>';
+  } else {
+    activas.forEach(a => {
+      let msg = a.vars.length > 0 ? `⚠️ ALERTA: Alza en: <b>${a.vars.join(', ')}</b>` : "";
+      if(a.nivel) msg += (msg ? " | " : "") + "⚠️ NIVEL CRÍTICO (<30%)";
+      
+      contenedor.innerHTML += `<div class="alert-card">
+        <div><h3>MÁQUINA: ${a.m} | EQUIPO: ${a.e}</h3><p>${msg}</p></div>
+        <button class="btn-eliminar" onclick="eliminarAlarma('${a.id}')">REVISADO</button>
+      </div>`;
+    });
+  }
   actualizarBadge();
 }
 
@@ -379,7 +398,6 @@ function gestionarVisibilidadIngreso() {
   $('wrapper-t').style.display = (m === "BD04" && !esServo) ? "none" : "contents";
 
   if (esServo) {
-    // ACTUALIZACIÓN DE NOMBRES PARA SERVO EN INGRESO
     $('label-r').innerText = "RPM:"; 
     $('label-s').innerText = "CARGA (A):"; 
     $('label-t').innerText = "TORQUE:";
@@ -397,7 +415,6 @@ function gestionarVisibilidadIngreso() {
     $('label-tf').innerText = esTacometro ? "RPM:" : ((esNivel || t.includes("HIDRAULICO") || t.includes("LUBRICACION")) ? "Nivel (%):" : (t.includes("AIRE") ? "Presión (PSI):" : "Temp Caja (°C):"));
     $('wrapper-tb').style.display = "none"; $('wrapper-tc').style.display = "none";
   } else {
-    // RESET A NOMBRES ORIGINALES SI NO ES SERVO
     $('label-r').innerText = "Amp Fase R:"; 
     $('label-s').innerText = "Amp Fase S:"; 
     $('label-t').innerText = "Amp Fase T:";
