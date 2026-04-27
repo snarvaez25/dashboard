@@ -379,8 +379,14 @@ function gestionarVisibilidadIngreso() {
   $('wrapper-t').style.display = (m === "BD04" && !esServo) ? "none" : "contents";
 
   if (esServo) {
-    $('label-tf').innerText = "T Motor (°C):"; $('label-tb').innerText = "T Drive (°C):";
-    $('wrapper-tb').style.display = "contents"; $('wrapper-tc').style.display = "none";
+    // ACTUALIZACIÓN DE NOMBRES PARA SERVO EN INGRESO
+    $('label-r').innerText = "RPM:"; 
+    $('label-s').innerText = "CARGA (A):"; 
+    $('label-t').innerText = "TORQUE:";
+    $('label-tf').innerText = "T Motor (°C):"; 
+    $('label-tb').innerText = "T Drive (°C):";
+    $('wrapper-tb').style.display = "contents"; 
+    $('wrapper-tc').style.display = "none";
   } else if (esAceite) {
     $('label-tf').innerText = "Temp Aceite (°C):"; 
     $('wrapper-tb').style.display = "none"; $('wrapper-tc').style.display = "none";
@@ -391,6 +397,10 @@ function gestionarVisibilidadIngreso() {
     $('label-tf').innerText = esTacometro ? "RPM:" : ((esNivel || t.includes("HIDRAULICO") || t.includes("LUBRICACION")) ? "Nivel (%):" : (t.includes("AIRE") ? "Presión (PSI):" : "Temp Caja (°C):"));
     $('wrapper-tb').style.display = "none"; $('wrapper-tc').style.display = "none";
   } else {
+    // RESET A NOMBRES ORIGINALES SI NO ES SERVO
+    $('label-r').innerText = "Amp Fase R:"; 
+    $('label-s').innerText = "Amp Fase S:"; 
+    $('label-t').innerText = "Amp Fase T:";
     $('label-tf').innerText = "T Frontal:"; $('label-tb').innerText = "T-Bobina:";
     $('wrapper-tb').style.display = "contents"; $('wrapper-tc').style.display = t.includes("MOTOR") ? "none" : "contents";
   }
@@ -424,7 +434,6 @@ async function loadData() {
   const filtrados = globalData.filter(r => (!mF||r[0]===mF) && (!tF||r[1]===tF) && (!eF||r[2]===eF));
   const labels = filtrados.map(r => r[4].split('T')[0]);
 
-  // LÓGICA DE ETIQUETAS IGUAL A LA PESTAÑA DE INGRESO
   let ds2Label = "T-FRON";
   if(eN.includes("ACEITE")) ds2Label = "TEMP ACEITE";
   else if(tN.includes("SERVO")) ds2Label = "T MOTOR";
