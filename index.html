@@ -16,6 +16,7 @@
       --text-muted: #636e72;
       --border: #dfe6e9;
       --danger: #d63031;
+      --warning: #f39c12;
     }
 
     body { 
@@ -26,7 +27,6 @@
       color: var(--text-main); 
     }
 
-    /* Títulos Estilo Dashboard */
     h2 { 
       color: var(--primary); 
       font-size: 1.2rem; 
@@ -37,7 +37,6 @@
       font-weight: 600;
     }
 
-    /* Pestañas Modernas */
     .tabs { 
       display: flex; 
       gap: 2px; 
@@ -69,7 +68,6 @@
       box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
     }
 
-    /* Contenedores */
     .tab-content { 
       display: none; 
       background: var(--bg-card); 
@@ -87,7 +85,6 @@
       border-radius: 8px; 
     }
 
-    /* Formularios */
     label { 
       font-size: 0.75rem; 
       color: var(--text-muted); 
@@ -110,13 +107,6 @@
       transition: border 0.2s;
     }
 
-    select:focus, input:focus { 
-      outline: none; 
-      border-color: var(--primary); 
-      box-shadow: 0 0 0 3px rgba(17, 93, 169, 0.1); 
-    }
-
-    /* Botones Estilo BI */
     button { 
       padding: 12px 28px; 
       border: none; 
@@ -144,9 +134,6 @@
       padding: 6px 12px;
     }
     
-    button.btn-eliminar:hover { background: #feebe7; }
-
-    /* Gráficos */
     .charts-container { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 25px; }
 
     .chart-box { 
@@ -156,17 +143,14 @@
       padding: 20px; 
       border: 1px solid var(--border); 
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
 
-    /* Grid del Formulario */
     .form-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
     .col { display: grid; grid-template-columns: 130px 1fr; gap: 8px; align-items: center; }
 
-    /* Alertas */
     .alert-card { 
-      background: #fff5f5; 
-      border: 1px solid #feb2b2; 
+      background: #ffffff; 
+      border: 1px solid #dfe6e9; 
       padding: 18px; 
       margin-bottom: 12px; 
       border-left: 6px solid var(--danger); 
@@ -174,10 +158,11 @@
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     }
 
-    .alert-card h3 { margin: 0 0 5px 0; color: #c53030; font-size: 0.95rem; }
-    .alert-card p { margin: 0; font-size: 0.85rem; color: #4a5568; }
+    .alert-card h3 { margin: 0 0 5px 0; color: var(--text-main); font-size: 0.95rem; }
+    .alert-card ul { margin: 0; padding-left: 18px; color: #4a5568; font-size: 0.85rem; }
 
     .badge { 
       position: absolute; top: -5px; right: -8px; 
@@ -250,7 +235,7 @@
   </div>
   <div class="charts-container">
     <div class="chart-box" id="container-chartRST"><h2 id="titulo-grafico1">Tendencia de Amperaje</h2><canvas id="chartRST"></canvas></div>
-    <div class="chart-box"><h2 id="titulo-grafico2">Tendencia Térmica</h2><canvas id="chartTFTBTC"></canvas></div>
+    <div class="chart-box" id="container-chartTermico"><h2 id="titulo-grafico2">Tendencia Térmica</h2><canvas id="chartTFTBTC"></canvas></div>
   </div>
 </div>
 
@@ -262,25 +247,21 @@
 </div>
 
 <script>
-/* MANTENIENDO LÓGICA ORIGINAL */
-Chart.defaults.color = '#636e72';
-Chart.defaults.borderColor = '#dfe6e9';
+const LIMITES = {
+    TEMP_MAX: 65.0,
+    DESBALANCE_MAX: 15,
+    NIVEL_MIN: 35,
+    TENDENCIA_ALZA: 8
+};
 
 const sheetURL = "https://script.google.com/macros/s/AKfycby6d-1MkBHwZ4xDbvNNfaowjS8obkUxSxkUppTy0ia6xr4wHa6-mEg_8saIJ2B4u-3O/exec";
 let chart1, chart2, globalData = [];
 let alarmasSilenciadas = JSON.parse(localStorage.getItem('alarmasSilenciadas')) || [];
-let alarmasNotificadas = [];
 
 const $ = (id) => document.getElementById(id);
 const normalizar = (t) => t ? t.toString().trim().toUpperCase() : "";
 
 if ("Notification" in window) Notification.requestPermission();
-
-function dispararNotificacion(titulo, cuerpo) {
-  if (Notification.permission === "granted") {
-    new Notification(titulo, { body: cuerpo, icon: "https://cdn-icons-png.flaticon.com/512/564/564619.png" });
-  }
-}
 
 function cambiarTab(tab) {
   document.querySelectorAll('.tab, .tab-content').forEach(el => el.classList.remove('active'));
@@ -289,14 +270,14 @@ function cambiarTab(tab) {
   $(tab).classList.add('active');
 }
 
-function evaluarAlertaPersistente(serie) {
-  if (serie.length < 3) return false;
-  let subidas = 0;
-  for (let i = 1; i < serie.length; i++) {
-    if (serie[i] > serie[i-1]) { subidas++; if (subidas >= 2) return true; } 
-    else { subidas = 0; }
-  }
-  return false;
+function analizarTendenciaPredictiva(serie) {
+  if (serie.length < 4) return { alerta: false };
+  const ultimos = serie.slice(-4).map(Number).filter(v => v > 0);
+  if (ultimos.length < 4) return { alerta: false };
+  const inicial = ultimos[0];
+  const final = ultimos[ultimos.length - 1];
+  const incrementoPct = ((final - inicial) / inicial) * 100;
+  return { alerta: incrementoPct >= LIMITES.TENDENCIA_ALZA, valor: incrementoPct.toFixed(1) };
 }
 
 function eliminarAlarma(id) {
@@ -307,7 +288,6 @@ function eliminarAlarma(id) {
   }
 }
 
-// FUNCIÓN ÚNICA DE DETECCIÓN PARA EVITAR DESFASES
 function obtenerAlarmasActivas() {
   const ids = [...new Set(globalData.map(r => `${r[0]}|${r[1]}|${r[2]}`))];
   const alarmasEncontradas = [];
@@ -315,39 +295,46 @@ function obtenerAlarmasActivas() {
   ids.forEach(id => {
     if (alarmasSilenciadas.includes(id)) return;
     const [m, t, e] = id.split('|');
-    const tN = normalizar(t), eN = normalizar(e);
-    
-    const esCaja = tN.includes("CAJA") || tN.includes("AIRE");
-    const esAceite = eN.includes("ACEITE");
-    const esTacometro = eN.includes("TACÓMETRO");
-    const esNivel = eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO");
-    const esServo = tN.includes("SERVO"), esInt = eN.includes("INTERCAMBIADOR");
-    const esEsp = tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || esCaja || esNivel || esTacometro;
-
-    let labels = {
-      R: esServo ? "RPM" : "Amperaje R", S: esServo ? "CARGA (A)" : "Amperaje S", T: esServo ? "TORQUE" : "Amperaje T",
-      F: esServo ? "T MOTOR" : (esAceite ? "TEMP ACEITE" : (esCaja ? "TEMP CAJA" : (esTacometro ? "RPM" : (esEsp ? "NIVEL" : (esInt ? "INGRESO" : "T-FRON"))))),
-      B: esServo ? "T DRIVE" : (esInt ? "RETORNO" : "T-BOB"), C: "T-CARA"
-    };
-
     const filtrados = globalData.filter(r => r[0]===m && r[1]===t && r[2]===e);
-    let check = [{n:labels.R, i:5}, {n:labels.S, i:6}];
-    if (m !== "BD04" || esServo) check.push({n:labels.T, i:7});
-    check.push({n:labels.F, i:8}, {n:labels.B, i:9});
-    if(!esServo) check.push({n:labels.C, i:10});
+    if (filtrados.length === 0) return;
 
-    // Evaluación Predictiva
-    let variablesConAlza = check.filter(v => evaluarAlertaPersistente(filtrados.map(r => Number(r[v.i])).filter(val => val !== 0))).map(v => v.n);
-    
-    // Evaluación Nivel Crítico
-    let alertaNivel = false;
-    if (esNivel || esTacometro) {
-        const ultimoValor = Number(filtrados[filtrados.length - 1]?.[8]); 
-        if (ultimoValor > 0 && ultimoValor < 30) alertaNivel = true;
+    const ultimo = filtrados[filtrados.length - 1];
+    const eN = normalizar(e);
+    const tN = normalizar(t);
+    let hallazgos = [];
+    let critico = false;
+
+    const valorActual = Number(ultimo[8]);
+    const tendVal = analizarTendenciaPredictiva(filtrados.map(r => r[8]));
+
+    if (eN.includes("TACÓMETRO")) {
+        if (tendVal.alerta) hallazgos.push(`📈 Variación brusca en RPM (+${tendVal.valor}%)`);
+    } else if (eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO")) {
+        if (valorActual < LIMITES.NIVEL_MIN) {
+            hallazgos.push(`🪫 Nivel bajo crítico: ${valorActual}%`);
+            critico = true;
+        }
+    } else {
+        if (valorActual > LIMITES.TEMP_MAX) {
+            hallazgos.push(`🔥 Temp. Crítica: ${valorActual}°C`);
+            critico = true;
+        } else if (tendVal.alerta) {
+            hallazgos.push(`📈 Alza térmica detectada (+${tendVal.valor}%)`);
+        }
     }
 
-    if (variablesConAlza.length > 0 || alertaNivel) {
-      alarmasEncontradas.push({ id, m, e, vars: variablesConAlza, nivel: alertaNivel });
+    const r = Number(ultimo[5]), s = Number(ultimo[6]), t_fase = Number(ultimo[7]);
+    if (r > 0 && s > 0 && (m !== "BD04" ? t_fase > 0 : true)) {
+        const prom = (r + s + (t_fase || 0)) / (t_fase > 0 ? 3 : 2);
+        const desbalance = (Math.max(r, s, t_fase) - Math.min(r, s, t_fase)) / prom * 100;
+        if (desbalance > LIMITES.DESBALANCE_MAX) {
+            hallazgos.push(`⚡ Desbalance fases: ${desbalance.toFixed(1)}%`);
+            critico = true;
+        }
+    }
+
+    if (hallazgos.length > 0) {
+      alarmasEncontradas.push({ id, m, t, e, mensajes: hallazgos, critico });
     }
   });
   return alarmasEncontradas;
@@ -366,20 +353,13 @@ function actualizarResumen() {
   const contenedor = $('lista-alertas');
   if (!contenedor) return;
   contenedor.innerHTML = "";
-  
   const activas = obtenerAlarmasActivas();
-
   if (activas.length === 0) {
     contenedor.innerHTML = '<div class="no-alerts">SISTEMAS OPERANDO NORMALMENTE</div>';
   } else {
     activas.forEach(a => {
-      let msg = a.vars.length > 0 ? `⚠️ ALERTA: Alza en: <b>${a.vars.join(', ')}</b>` : "";
-      if(a.nivel) msg += (msg ? " | " : "") + "⚠️ NIVEL CRÍTICO (<30%)";
-      
-      contenedor.innerHTML += `<div class="alert-card">
-        <div><h3>MÁQUINA: ${a.m} | EQUIPO: ${a.e}</h3><p>${msg}</p></div>
-        <button class="btn-eliminar" onclick="eliminarAlarma('${a.id}')">REVISADO</button>
-      </div>`;
+      const colorBorde = a.critico ? 'var(--danger)' : 'var(--warning)';
+      contenedor.innerHTML += `<div class="alert-card" style="border-left-color: ${colorBorde}"><div><h3>${a.m} | ${a.t} | ${a.e}</h3><ul>${a.mensajes.map(m => `<li>${m}</li>`).join('')}</ul></div><button class="btn-eliminar" onclick="eliminarAlarma('${a.id}')">REVISADO</button></div>`;
     });
   }
   actualizarBadge();
@@ -389,8 +369,8 @@ function gestionarVisibilidadIngreso() {
   const m = $('maquina').value, t = normalizar($('tipo').value), e = normalizar($('motor').value);
   const esCaja = t.includes("CAJA") || t.includes("AIRE");
   const esServo = t.includes("SERVO"), esInt = e.includes("INTERCAMBIADOR"), esAceite = e.includes("ACEITE");
-  const esTacometro = e.includes("TACÓMETRO");
-  const esNivel = e.includes("RESERVORIO") || e.includes("CENTRALIZADO");
+  const esTacometro = e.includes("TACÓMETRO"), esNivel = e.includes("RESERVORIO") || e.includes("CENTRALIZADO");
+  const esBlower = t.includes("BLOWER");
   const esEsp = t.includes("HIDRAULICO") || t.includes("LUBRICACION") || esCaja || esNivel || esTacometro;
 
   $('col-rst').style.display = (esEsp || esInt || esAceite) ? "none" : "grid";
@@ -398,26 +378,23 @@ function gestionarVisibilidadIngreso() {
   $('wrapper-t').style.display = (m === "BD04" && !esServo) ? "none" : "contents";
 
   if (esServo) {
-    $('label-r').innerText = "RPM:"; 
-    $('label-s').innerText = "CARGA (A):"; 
-    $('label-t').innerText = "TORQUE:";
-    $('label-tf').innerText = "T Motor (°C):"; 
-    $('label-tb').innerText = "T Drive (°C):";
-    $('wrapper-tb').style.display = "contents"; 
-    $('wrapper-tc').style.display = "none";
+    $('label-r').innerText = "RPM:"; $('label-s').innerText = "CARGA (A):"; $('label-t').innerText = "TORQUE:";
+    $('label-tf').innerText = "T Motor (°C):"; $('label-tb').innerText = "T Drive (°C):";
+    $('wrapper-tb').style.display = "contents"; $('wrapper-tc').style.display = "none";
   } else if (esAceite) {
-    $('label-tf').innerText = "Temp Aceite (°C):"; 
-    $('wrapper-tb').style.display = "none"; $('wrapper-tc').style.display = "none";
+    $('label-tf').innerText = "Temp Aceite (°C):"; $('wrapper-tb').style.display = "none"; $('wrapper-tc').style.display = "none";
   } else if (esInt) {
     $('label-tf').innerText = "Ingreso (°C):"; $('label-tb').innerText = "Retorno (°C):";
     $('wrapper-tb').style.display = "contents"; $('wrapper-tc').style.display = "none";
   } else if (esEsp) {
-    $('label-tf').innerText = esTacometro ? "RPM:" : ((esNivel || t.includes("HIDRAULICO") || t.includes("LUBRICACION")) ? "Nivel (%):" : (t.includes("AIRE") ? "Presión (PSI):" : "Temp Caja (°C):"));
+    $('label-tf').innerText = esTacometro ? "RPM:" : (esNivel ? "Nivel (%):" : (t.includes("AIRE") ? "Presión (PSI):" : "Temp Caja (°C):"));
     $('wrapper-tb').style.display = "none"; $('wrapper-tc').style.display = "none";
+  } else if (esBlower) {
+    $('label-r').innerText = "Amp Fase R:"; $('label-s').innerText = "Amp Fase S:"; $('label-t').innerText = "Amp Fase T:";
+    $('label-tf').innerText = "T Frontal:"; $('label-tb').innerText = "T-Bobina:"; $('label-tc').innerText = "T CARACOL:";
+    $('wrapper-tb').style.display = "contents"; $('wrapper-tc').style.display = "contents";
   } else {
-    $('label-r').innerText = "Amp Fase R:"; 
-    $('label-s').innerText = "Amp Fase S:"; 
-    $('label-t').innerText = "Amp Fase T:";
+    $('label-r').innerText = "Amp Fase R:"; $('label-s').innerText = "Amp Fase S:"; $('label-t').innerText = "Amp Fase T:";
     $('label-tf').innerText = "T Frontal:"; $('label-tb').innerText = "T-Bobina:";
     $('wrapper-tb').style.display = "contents"; $('wrapper-tc').style.display = t.includes("MOTOR") ? "none" : "contents";
   }
@@ -426,14 +403,33 @@ function gestionarVisibilidadIngreso() {
 function gestionarVisibilidadVisualizacion() {
   const t = normalizar($('filtroTipo').value), e = normalizar($('filtroMotor').value);
   const esAceite = e.includes("ACEITE"), esInt = e.includes("INTERCAMBIADOR"), esServo = t.includes("SERVO");
-  const esTacometro = e.includes("TACÓMETRO");
-  const esNivel = e.includes("RESERVORIO") || e.includes("CENTRALIZADO");
+  const esTacometro = e.includes("TACÓMETRO"), esNivel = e.includes("RESERVORIO") || e.includes("CENTRALIZADO");
   const esEsp = t.includes("HIDRAULICO") || t.includes("LUBRICACION") || t.includes("CAJA") || t.includes("AIRE") || esNivel || esTacometro;
   
-  $('container-chartRST').style.display = (esEsp || esInt || esAceite) ? "none" : "block";
-  if(esServo) $('container-chartRST').style.display = "block";
+  $('container-chartRST').style.display = (esEsp || esInt || esAceite) && !esServo ? "none" : "block";
   
-  $('titulo-grafico2').innerText = esAceite ? "Monitor Temp. Aceite" : (esServo ? "Monitor Térmico Servo" : (esInt ? "Monitor Intercambiador" : (esTacometro ? "Monitor de RPM" : (esNivel ? "Monitor de Nivel (%)" : "Monitor Térmico"))));
+  let tituloG1 = "Tendencia de Amperaje";
+  let tituloG2 = "Monitor Térmico";
+
+  if (esServo) {
+      tituloG1 = "Parámetros Operativos (RPM/Carga)";
+      tituloG2 = "Monitor Térmico Servo";
+  } else if (esTacometro) {
+      tituloG2 = "Monitor de Velocidad (RPM)";
+  } else if (esNivel) {
+      tituloG2 = "Monitor de Nivel (%)";
+  } else if (esInt) {
+      tituloG2 = "Monitor Intercambiador (°C)";
+  } else if (esAceite) {
+      tituloG2 = "Monitor Temp. Aceite (°C)";
+  } else if (t.includes("AIRE")) {
+      tituloG2 = "Monitor de Presión (PSI)";
+  } else if (t.includes("BLOWER")) {
+      tituloG2 = "Monitor Térmico Blower";
+  }
+
+  $('titulo-grafico1').innerText = tituloG1;
+  $('titulo-grafico2').innerText = tituloG2;
 }
 
 async function loadData() {
@@ -445,37 +441,61 @@ async function loadData() {
       loadSelectIngreso();
     } catch (e) { console.error(e); return; }
   }
-
   const mF = $('filtroMaquina').value, tF = $('filtroTipo').value, eF = $('filtroMotor').value;
-  const tN = normalizar(tF), eN = normalizar(eF);
   const filtrados = globalData.filter(r => (!mF||r[0]===mF) && (!tF||r[1]===tF) && (!eF||r[2]===eF));
+  const tN = normalizar(tF), eN = normalizar(eF);
   const labels = filtrados.map(r => r[4].split('T')[0]);
-
-  let ds2Label = "T-FRON";
-  if(eN.includes("ACEITE")) ds2Label = "TEMP ACEITE";
-  else if(tN.includes("SERVO")) ds2Label = "T MOTOR";
-  else if(eN.includes("INTERCAMBIADOR")) ds2Label = "INGRESO";
-  else if(eN.includes("TACÓMETRO")) ds2Label = "RPM";
-  else if(tN.includes("HIDRAULICO") || tN.includes("LUBRICACION") || eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO")) ds2Label = "NIVEL %";
-
-  let ds2 = [{ label: ds2Label, data: filtrados.map(r => r[8]), borderColor: '#ff9f43', backgroundColor: 'rgba(255, 159, 67, 0.1)', fill: true, tension: 0.3 }];
   
-  if (tN.includes("SERVO") || eN.includes("INTERCAMBIADOR") || (!tN.includes("HIDRAULICO") && !eN.includes("ACEITE") && !eN.includes("RESERVORIO") && !eN.includes("CENTRALIZADO") && !eN.includes("TACÓMETRO"))) {
-    let ds2LabelB = "T-BOB";
-    if(tN.includes("SERVO")) ds2LabelB = "T DRIVE";
-    if(eN.includes("INTERCAMBIADOR")) ds2LabelB = "RETORNO";
-    
-    ds2.push({ label: ds2LabelB, data: filtrados.map(r => r[9]), borderColor: '#0984e3', tension: 0.3 });
+  let ds2 = [];
+  // CONFIGURACIÓN DE GRÁFICO 2 (TÉRMICO / OTROS)
+  if (tN.includes("BLOWER")) {
+      ds2 = [
+          { label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: '#115da9', tension: 0.3 },
+          { label: 'T-Bobina', data: filtrados.map(r => r[9]), borderColor: '#f39c12', tension: 0.3 },
+          { label: 'T CARACOL', data: filtrados.map(r => r[10]), borderColor: '#00bfa5', tension: 0.3 }
+      ];
+  } else if (tN.includes("MOTOR") && !tN.includes("SERVO")) {
+      ds2 = [
+          { label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: '#115da9', tension: 0.3 },
+          { label: 'T-Bobina', data: filtrados.map(r => r[9]), borderColor: '#f39c12', tension: 0.3 }
+      ];
+  } else if (eN.includes("INTERCAMBIADOR")) {
+      ds2 = [
+          { label: 'Ingreso', data: filtrados.map(r => r[8]), borderColor: '#115da9', tension: 0.3 },
+          { label: 'Retorno', data: filtrados.map(r => r[9]), borderColor: '#f39c12', tension: 0.3 }
+      ];
+  } else if (tN.includes("SERVO")) {
+      ds2 = [
+          { label: 'T Motor (°C)', data: filtrados.map(r => r[8]), borderColor: '#d63031', tension: 0.3 },
+          { label: 'T Drive (°C)', data: filtrados.map(r => r[9]), borderColor: '#115da9', tension: 0.3 }
+      ];
+  } else {
+      let leyendaDS2 = "Temperatura";
+      if(eN.includes("TACÓMETRO")) leyendaDS2 = "RPM";
+      else if(eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO")) leyendaDS2 = "Nivel %";
+      else if(tN.includes("AIRE")) leyendaDS2 = "PSI";
+      ds2 = [{ label: leyendaDS2, data: filtrados.map(r => r[8]), borderColor: '#ff9f43', fill: true, tension: 0.3 }];
   }
 
-  let ds1 = [
-    { label: tN.includes("SERVO") ? 'RPM' : 'Fase R', data: filtrados.map(r => r[5]), borderColor: '#d63031', tension: 0.3 }, 
-    { label: tN.includes("SERVO") ? 'CARGA (A)' : 'Fase S', data: filtrados.map(r => r[6]), borderColor: '#00b894', tension: 0.3 }
-  ];
-  if (mF !== "BD04" || tN.includes("SERVO")) {
-    ds1.push({ label: tN.includes("SERVO") ? 'TORQUE' : 'Fase T', data: filtrados.map(r => r[7]), borderColor: '#0984e3', tension: 0.3 });
+  // CONFIGURACIÓN DE GRÁFICO 1 (AMPERAJE / OPERATIVO)
+  let ds1 = [];
+  if (tN.includes("SERVO")) {
+      ds1 = [
+          { label: 'RPM', data: filtrados.map(r => r[5]), borderColor: '#d63031', tension: 0.3 },
+          { label: 'CARGA (A)', data: filtrados.map(r => r[6]), borderColor: '#00b894', tension: 0.3 },
+          { label: 'TORQUE', data: filtrados.map(r => r[7]), borderColor: '#115da9', tension: 0.3 }
+      ];
+  } else {
+      ds1 = [
+          { label: 'Amp Fase R', data: filtrados.map(r => r[5]), borderColor: '#d63031', tension: 0.3 },
+          { label: 'Amp Fase S', data: filtrados.map(r => r[6]), borderColor: '#00b894', tension: 0.3 }
+      ];
+      if (mF !== "BD04") {
+          ds1.push({ label: 'Amp Fase T', data: filtrados.map(r => r[7]), borderColor: '#115da9', tension: 0.3 });
+      }
   }
-
+  
+  gestionarVisibilidadVisualizacion();
   actualizarChart('chartRST', labels, ds1, chart1, c => chart1 = c);
   actualizarChart('chartTFTBTC', labels, ds2, chart2, c => chart2 = c);
   actualizarBadge();
@@ -484,8 +504,21 @@ async function loadData() {
 
 function actualizarChart(id, labels, datasets, obj, save) {
   const ctx = $(id).getContext('2d');
-  if (obj) { obj.data.labels = labels; obj.data.datasets = datasets; obj.update(); } 
-  else { save(new Chart(ctx, { type: 'line', data: { labels, datasets }, options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: false } } } })); }
+  if (obj) { 
+    obj.data.labels = labels; 
+    obj.data.datasets = datasets; 
+    obj.update(); 
+  } else { 
+    save(new Chart(ctx, { 
+      type: 'line', 
+      data: { labels, datasets }, 
+      options: { 
+        responsive: true,
+        plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+        scales: { y: { beginAtZero: false } }
+      } 
+    })); 
+  }
 }
 
 function loadSelectIngreso() {
@@ -525,8 +558,9 @@ async function enviarDatos() {
   try {
     await fetch(sheetURL, { method: 'POST', body: JSON.stringify(datos) });
     alert("DATOS CARGADOS CON ÉXITO ✅");
-    ['r','s','t','tf','tb','tc','maquina'].forEach(id => $(id).value = "");
-    globalData = []; loadData();
+    ['r','s','t','tf','tb','tc','maquina'].forEach(id => { if($(id)) $(id).value = ""; });
+    globalData = []; 
+    await loadData();
   } catch (e) { alert("ERROR DE CONEXIÓN ❌"); } 
   finally { btn.disabled = false; btn.innerText = "Ejecutar Carga de Datos"; }
 }
