@@ -323,14 +323,17 @@ function obtenerAlarmasActivas() {
         }
     }
 
-    const r = Number(ultimo[5]), s = Number(ultimo[6]), t_fase = Number(ultimo[7]);
-    if (r > 0 && s > 0 && (m !== "BD04" ? t_fase > 0 : true)) {
-        const prom = (r + s + (t_fase || 0)) / (t_fase > 0 ? 3 : 2);
-        const desbalance = (Math.max(r, s, t_fase) - Math.min(r, s, t_fase)) / prom * 100;
-        if (desbalance > LIMITES.DESBALANCE_MAX) {
-            hallazgos.push(`⚡ Desbalance fases: ${desbalance.toFixed(1)}%`);
-            critico = true;
-        }
+    // LÓGICA DE DESBALANCE: Solo aplicar si NO es un equipo SERVO
+    if (!tN.includes("SERVO")) {
+      const r = Number(ultimo[5]), s = Number(ultimo[6]), t_fase = Number(ultimo[7]);
+      if (r > 0 && s > 0 && (m !== "BD04" ? t_fase > 0 : true)) {
+          const prom = (r + s + (t_fase || 0)) / (t_fase > 0 ? 3 : 2);
+          const desbalance = (Math.max(r, s, t_fase) - Math.min(r, s, t_fase)) / prom * 100;
+          if (desbalance > LIMITES.DESBALANCE_MAX) {
+              hallazgos.push(`⚡ Desbalance fases: ${desbalance.toFixed(1)}%`);
+              critico = true;
+          }
+      }
     }
 
     if (hallazgos.length > 0) {
