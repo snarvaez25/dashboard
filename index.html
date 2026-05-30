@@ -252,7 +252,9 @@ const LIMITES = {
     DESBALANCE_MAX: 15,
     NIVEL_MIN: 30,
     TENDENCIA_ALZA: 8,
-    VARIACION_ACEITE_MAX: 10.0
+    VARIACION_ACEITE_MAX: 10.0,
+    INT_DIF_MAX: 18.0,
+    INT_SALTO_MAX: 10.0
 };
 
 const sheetURL = "https://script.google.com/macros/s/AKfycby6d-1MkBHwZ4xDbvNNfaowjS8obkUxSxkUppTy0ia6xr4wHa6-mEg_8saIJ2B4u-3O/exec";
@@ -340,6 +342,36 @@ function obtenerAlarmasActivas() {
         }
         if (valorActual > LIMITES.TEMP_MAX) {
             hallazgos.push(`🔥 Temp. Crítica: ${valorActual}°C`);
+            critico = true;
+        }
+    } else if (eN.includes("INTERCAMBIADOR")) {
+        const ingresoActual = Number(ultimo[8]);
+        const retornoActual = Number(ultimo[9]);
+        
+        // 1. Diferencia excesiva entre Ingreso y Retorno (18 grados)
+        if (Math.abs(ingresoActual - retornoActual) >= LIMITES.INT_DIF_MAX) {
+            hallazgos.push(`⚠️ Dif. excesiva Ingreso/Retorno: ${Math.abs(ingresoActual - retornoActual).toFixed(1)}°C (${ingresoActual}°C / ${retornoActual}°C)`);
+            critico = true;
+        }
+        
+        // 2. Variación irregular respecto al registro anterior (que el anterior supere en 10 grados al actual)
+        if (filtrados.length >= 2) {
+            const penultimo = filtrados[filtrados.length - 2];
+            const ingresoAnterior = Number(penultimo[8]);
+            const retornoAnterior = Number(penultimo[9]);
+            
+            if (ingresoAnterior - ingresoActual >= LIMITES.INT_SALTO_MAX) {
+                hallazgos.push(`📉 Caída brusca Temp. Ingreso: -${(ingresoAnterior - ingresoActual).toFixed(1)}°C (Antes: ${ingresoAnterior}°C -> Ahora: ${ingresoActual}°C)`);
+                critico = true;
+            }
+            if (retornoAnterior - retornoActual >= LIMITES.INT_SALTO_MAX) {
+                hallazgos.push(`📉 Caída brusca Temp. Retorno: -${(retornoAnterior - retornoActual).toFixed(1)}°C (Antes: ${retornoAnterior}°C -> Ahora: ${retornoActual}°C)`);
+                critico = true;
+            }
+        }
+        
+        if (ingresoActual > LIMITES.TEMP_MAX || retornoActual > LIMITES.TEMP_MAX) {
+            hallazgos.push(`🔥 Temp. Crítica detectada: Ingreso ${ingresoActual}°C / Retorno ${retornoActual}°C`);
             critico = true;
         }
     } else {
