@@ -251,7 +251,8 @@ const LIMITES = {
     TEMP_MAX: 65.0,
     DESBALANCE_MAX: 15,
     NIVEL_MIN: 30,
-    TENDENCIA_ALZA: 8
+    TENDENCIA_ALZA: 8,
+    VARIACION_ACEITE_MAX: 10.0
 };
 
 const sheetURL = "https://script.google.com/macros/s/AKfycby6d-1MkBHwZ4xDbvNNfaowjS8obkUxSxkUppTy0ia6xr4wHa6-mEg_8saIJ2B4u-3O/exec";
@@ -278,6 +279,21 @@ function analizarTendenciaPredictiva(serie) {
   const final = ultimos[ultimos.length - 1];
   const incrementoPct = ((final - inicial) / inicial) * 100;
   return { alerta: incrementoPct >= LIMITES.TENDENCIA_ALZA, valor: incrementoPct.toFixed(1) };
+}
+
+function analizarVariacionSalto(serie) {
+  if (serie.length < 2) return { alerta: false };
+  const penultimo = Number(serie[serie.length - 2]);
+  const ultimo = Number(serie[serie.length - 1]);
+  if (isNaN(penultimo) || isNaN(ultimo) || penultimo === 0 || ultimo === 0) return { alerta: false };
+  const diferencia = ultimo - penultimo;
+  const difAbsoluta = Math.abs(diferencia);
+  return { 
+    alerta: difAbsoluta >= LIMITES.VARIACION_ACEITE_MAX, 
+    valor: diferencia.toFixed(1),
+    anterior: penultimo.toFixed(1),
+    actual: ultimo.toFixed(1)
+  };
 }
 
 function eliminarAlarma(id) {
@@ -312,6 +328,18 @@ function obtenerAlarmasActivas() {
     } else if (eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO")) {
         if (valorActual < LIMITES.NIVEL_MIN) {
             hallazgos.push(`🪫 Nivel bajo crítico: ${valorActual}%`);
+            critico = true;
+        }
+    } else if (eN.includes("ACEITE")) {
+        // Validación específica para Temp Aceite (Salto térmico de ±10 grados)
+        const saltoVal = analizarVariacionSalto(filtrados.map(r => r[8]));
+        if (saltoVal.alerta) {
+            const signo = Number(saltoVal.valor) > 0 ? "+" : "";
+            hallazgos.push(`⚠️ Variación térmica brusca: ${signo}${saltoVal.valor}°C (De ${saltoVal.anterior}°C a ${saltoVal.actual}°C)`);
+            critico = true;
+        }
+        if (valorActual > LIMITES.TEMP_MAX) {
+            hallazgos.push(`🔥 Temp. Crítica: ${valorActual}°C`);
             critico = true;
         }
     } else {
