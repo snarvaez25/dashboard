@@ -254,7 +254,8 @@ const LIMITES = {
     TENDENCIA_ALZA: 8,
     VARIACION_ACEITE_MAX: 10.0,
     INT_DIF_MAX: 18.0,
-    INT_SALTO_MAX: 10.0
+    INT_SALTO_MAX: 10.0,
+    DIF_VACIO_MAX: 5.0
 };
 
 const sheetURL = "https://script.google.com/macros/s/AKfycby6d-1MkBHwZ4xDbvNNfaowjS8obkUxSxkUppTy0ia6xr4wHa6-mEg_8saIJ2B4u-3O/exec";
@@ -325,6 +326,17 @@ function obtenerAlarmasActivas() {
     const valorActual = Number(ultimo[8]);
     const tendVal = analizarTendenciaPredictiva(filtrados.map(r => r[8]));
 
+    if (tN.includes("GENERAL") || eN.includes("VACÍO")) {
+        if (filtrados.length >= 2) {
+            const penultimoValor = Number(filtrados[filtrados.length - 2][8]);
+            const difVacio = Math.abs(valorActual - penultimoValor);
+            if (difVacio >= LIMITES.DIF_VACIO_MAX) {
+                hallazgos.push(`🛑 Falla Bomba de Vacío: Desviación crítica de ${difVacio.toFixed(1)} puntos (Anterior: ${penultimoValor} -> Actual: ${valorActual})`);
+                critico = true;
+            }
+        }
+    }
+
     if (eN.includes("TACÓMETRO")) {
         if (tendVal.alerta) hallazgos.push(`📈 Variación brusca en RPM (+${tendVal.valor}%)`);
     } else if (eN.includes("RESERVORIO") || eN.includes("CENTRALIZADO")) {
@@ -375,16 +387,18 @@ function obtenerAlarmasActivas() {
             critico = true;
         }
     } else {
-        if (valorActual > LIMITES.TEMP_MAX) {
-            hallazgos.push(`🔥 Temp. Crítica: ${valorActual}°C`);
-            critico = true;
-        } else if (tendVal.alerta) {
-            hallazgos.push(`📈 Alza térmica detectada (+${tendVal.valor}%)`);
+        if (!tN.includes("GENERAL") && !eN.includes("VACÍO")) {
+            if (valorActual > LIMITES.TEMP_MAX) {
+                hallazgos.push(`🔥 Temp. Crítica: ${valorActual}°C`);
+                critico = true;
+            } else if (tendVal.alerta) {
+                hallazgos.push(`📈 Alza térmica detectada (+${tendVal.valor}%)`);
+            }
         }
     }
 
-    // LÓGICA DE DESBALANCE: Solo aplicar si NO es un equipo SERVO
-    if (!tN.includes("SERVO")) {
+    // LÓGICA DE DESBALANCE: Solo aplicar si NO es un equipo SERVO o de VACÍO/GENERAL
+    if (!tN.includes("SERVO") && !tN.includes("GENERAL") && !eN.includes("VACÍO")) {
       const r = Number(ultimo[5]), s = Number(ultimo[6]), t_fase = Number(ultimo[7]);
       if (r > 0 && s > 0 && (m !== "BD04" ? t_fase > 0 : true)) {
           const prom = (r + s + (t_fase || 0)) / (t_fase > 0 ? 3 : 2);
@@ -493,7 +507,7 @@ function gestionarVisibilidadVisualizacion() {
   $('container-chartRST').style.display = (esEsp || esInt || esAceite) && !esServo ? "none" : "block";
   
   let tituloG1 = "Tendencia de Amperaje";
-  let tituloG2 = "Monitor Térmico";
+  let tituloG2 = "Monitor Técnico";
 
   if (esServo) {
       tituloG1 = "Parámetros Operativos (RPM/Carga)";
