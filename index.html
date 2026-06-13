@@ -133,7 +133,7 @@
       border: 1px solid #fab1a0;
       padding: 6px 12px;
     }
-    
+     
     .charts-container { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 25px; }
 
     .chart-box { 
@@ -213,7 +213,7 @@
           <label id="label-t">Amp Fase T:</label><input type="number" id="t" step="0.1">
         </div>
       </div>
-      <div class="col">
+      <div class="col" id="col-termico">
         <label id="label-tf">Temp F:</label><input type="number" id="tf" step="0.1" min="0" max="100">
         <div id="wrapper-tb" style="display: contents;"><label id="label-tb">Temp B:</label><input type="number" id="tb" step="0.1"></div>
         <div id="wrapper-tc" style="display: contents;"><label id="label-tc">Temp C:</label><input type="number" id="tc" step="0.1"></div>
@@ -333,7 +333,7 @@ function obtenerAlarmasActivas() {
             critico = true;
         }
     } else if (eN.includes("ACEITE")) {
-        // Validación específica para Temp Aceite (Salto térmico de ±10 grados)
+        // Validation específica para Temp Aceite (Salto térmico de ±10 grados)
         const saltoVal = analizarVariacionSalto(filtrados.map(r => r[8]));
         if (saltoVal.alerta) {
             const signo = Number(saltoVal.valor) > 0 ? "+" : "";
@@ -430,6 +430,17 @@ function actualizarResumen() {
 
 function gestionarVisibilidadIngreso() {
   const m = $('maquina').value, t = normalizar($('tipo').value), e = normalizar($('motor').value);
+  const esGeneralOVacio = t.includes("GENERAL") || e.includes("VACÍO");
+  
+  if (esGeneralOVacio) {
+    $('col-rst').style.display = "none";
+    $('col-termico').style.display = "grid";
+    $('label-tf').innerText = "Valor General:";
+    $('wrapper-tb').style.display = "none";
+    $('wrapper-tc').style.display = "none";
+    return;
+  }
+
   const esCaja = t.includes("CAJA") || t.includes("AIRE");
   const esServo = t.includes("SERVO"), esInt = e.includes("INTERCAMBIADOR"), esAceite = e.includes("ACEITE");
   const esTacometro = e.includes("TACÓMETRO"), esNivel = e.includes("RESERVORIO") || e.includes("CENTRALIZADO");
@@ -437,6 +448,7 @@ function gestionarVisibilidadIngreso() {
   const esEsp = t.includes("HIDRAULICO") || t.includes("LUBRICACION") || esCaja || esNivel || esTacometro;
 
   $('col-rst').style.display = (esEsp || esInt || esAceite) ? "none" : "grid";
+  $('col-termico').style.display = "grid";
   if(esServo) $('col-rst').style.display = "grid"; 
   $('wrapper-t').style.display = (m === "BD04" && !esServo) ? "none" : "contents";
 
@@ -465,6 +477,15 @@ function gestionarVisibilidadIngreso() {
 
 function gestionarVisibilidadVisualizacion() {
   const t = normalizar($('filtroTipo').value), e = normalizar($('filtroMotor').value);
+  const esGeneralOVacio = t.includes("GENERAL") || e.includes("VACÍO");
+  
+  if (esGeneralOVacio) {
+    $('container-chartRST').style.display = "none";
+    $('container-chartTermico').style.display = "block";
+    $('titulo-grafico2').innerText = "Tendencia de Valor General";
+    return;
+  }
+
   const esAceite = e.includes("ACEITE"), esInt = e.includes("INTERCAMBIADOR"), esServo = t.includes("SERVO");
   const esTacometro = e.includes("TACÓMETRO"), esNivel = e.includes("RESERVORIO") || e.includes("CENTRALIZADO");
   const esEsp = t.includes("HIDRAULICO") || t.includes("LUBRICACION") || t.includes("CAJA") || t.includes("AIRE") || esNivel || esTacometro;
@@ -511,7 +532,9 @@ async function loadData() {
   
   let ds2 = [];
   // CONFIGURACIÓN DE GRÁFICO 2 (TÉRMICO / OTROS)
-  if (tN.includes("BLOWER")) {
+  if (tN.includes("GENERAL") || eN.includes("VACÍO")) {
+      ds2 = [{ label: 'Valor General', data: filtrados.map(r => r[8]), borderColor: '#00bfa5', fill: true, tension: 0.3 }];
+  } else if (tN.includes("BLOWER")) {
       ds2 = [
           { label: 'T Frontal', data: filtrados.map(r => r[8]), borderColor: '#115da9', tension: 0.3 },
           { label: 'T-Bobina', data: filtrados.map(r => r[9]), borderColor: '#f39c12', tension: 0.3 },
